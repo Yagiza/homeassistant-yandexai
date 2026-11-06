@@ -6,8 +6,14 @@
 
 import logging
 
+from homeassistant.const import CONF_LLM_HASS_API
+from homeassistant.helpers import llm
+
 DOMAIN = "yandexgpt_conversation"
 LOGGER = logging.getLogger(__package__)
+
+SUBENTRY_TYPE_CONVERSATION = "conversation"
+SUBENTRY_TYPE_AI_TASK_DATA = "ai_task_data"
 
 CONF_FOLDER_ID = "folder_id"
 CONF_PROMPT = "prompt"
@@ -33,6 +39,21 @@ DEFAULT_INSTRUCTIONS_PROMPT_RU = """Ты — голосовой ассистен
 Отвечай на вопросы правдиво. Отвечай кратко, чётко и на русском языке.
 """
 
+RECOMMENDED_CONVERSATION_OPTIONS = {
+    CONF_RECOMMENDED: True,
+    CONF_PROMPT: DEFAULT_INSTRUCTIONS_PROMPT_RU,
+    CONF_LLM_HASS_API: [llm.LLM_API_ASSIST],
+    CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
+    CONF_MAX_TOOL_ITERATIONS: DEFAULT_MAX_TOOL_ITERATIONS,
+}
+
+RECOMMENDED_AI_TASK_OPTIONS = {
+    CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
+}
+
+DEFAULT_CONVERSATION_NAME = "YandexGPT"
+DEFAULT_AI_TASK_NAME = "YandexGPT AI Task"
+
 # Fallback list of known chat models, used when GET /models is unavailable
 CHAT_MODELS = (
     ("yandexgpt-lite", "YandexGPT Lite"),
@@ -42,6 +63,12 @@ CHAT_MODELS = (
 
 ASSIST_UNSUPPORTED_MODELS = []
 ASSIST_PARTIALLY_SUPPORTED_MODELS = ["yandexgpt-lite"]
+
+# Yandex AI Studio models that accept images in the chat (OpenAI image_url)
+MULTIMODAL_MODELS = (
+    "deepseek-v4.1-flash",
+    "qwen3.6-35b-a3b",
+)
 
 DOC_CHAT_MODELS_URL = "https://aistudio.yandex.ru/docs/ai-studio/concepts/generation/models"
 DOC_PRICING_URL = "https://aistudio.yandex.ru/docs/ai-studio/pricing#common-instance-sync"

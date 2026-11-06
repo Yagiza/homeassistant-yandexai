@@ -16,6 +16,7 @@ See [description in English](#yandexgpt-integration-for-home-assistant) below �
 - Интеграция может служить «мозгом» для создания DIY-умной колонки на базе ESPHome, если помимо YandexGPT добавить в Home Assistant синтез и распознавание речи.
 - YandexGPT можно использовать в автоматизациях, например, для создания чат-бота в Telegram.
 - Поддержка OpenAI-совместимых моделей AI Studio: YandexGPT, Alice и сторонние модели (Qwen, Gemma, Llama и другие).
+- Можно создать несколько ассистентов с разными моделями и настройками, а также использовать YandexGPT в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) (извлечение данных, анализ текста и т.д.).
 
 YandexGPT — это облачный сервис, плата за который взимается в соответствии с тарифами Yandex Cloud. При первой регистрации [можно получить стартовый грант](https://yandex.cloud/ru/docs/getting-started/usage-grant).
 
@@ -70,6 +71,7 @@ AI-powered assistant for your smart home. This integration bridges [YandexGPT](h
 - Can serve as the "brain" for a DIY smart speaker using ESPHome when combined with speech synthesis/recognition.
 - Useful for creating Telegram chatbots and other automations.
 - Supports OpenAI-compatible AI Studio models: YandexGPT, Alice and third-party models (Qwen, Gemma, Llama, …).
+- You can create multiple agents with different models and settings, and use YandexGPT in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) (data extraction, text analysis, etc.).
 
 YandexGPT is a cloud service with pricing according to Yandex Cloud tariffs.
 

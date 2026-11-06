@@ -37,7 +37,10 @@ class StreamTransformer:
             if chunk.tool_calls:
                 yield {
                     "tool_calls": [
-                        llm.ToolInput(tool_name=call.name, tool_args=call.arguments)
+                        llm.ToolInput(
+                            tool_name=call.name,
+                            tool_args=_tool_args_to_dict(call.arguments),
+                        )
                         for call in chunk.tool_calls
                     ]
                 }
@@ -61,6 +64,18 @@ class StreamTransformer:
                     translation_domain=DOMAIN,
                     translation_key="ethics_filter",
                 )
+
+
+def _tool_args_to_dict(tool_args: Any) -> dict[str, Any]:
+    """Normalize streamed tool call arguments to a dict."""
+    if isinstance(tool_args, dict):
+        return tool_args
+    try:
+        parsed = json.loads(tool_args) if tool_args else {}
+    except (json.JSONDecodeError, TypeError):
+        LOGGER.warning("Could not parse tool call arguments: %s", tool_args)
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _tool_args_to_json(tool_args: Any) -> str:
@@ -101,7 +116,7 @@ class ContentConverter:
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call_id,
-                    "content": json.dumps(content.tool_result, ensure_ascii=False),
+                    "content": json.dumps(content.result.data, ensure_ascii=False),
                 })
 
             elif isinstance(content, conversation.AssistantContent) and content.tool_calls:

@@ -4,7 +4,11 @@
       "user": {
         "data": {
           "folder_id": "Folder ID",
-          "api_key": "API key"
+          "api_key": "API key",
+          "enable_server_data_logging": "Server data logging"
+        },
+        "data_description": {
+          "enable_server_data_logging": "Enable logging of requests on Yandex Cloud servers"
         },
         "errors": {
           "invalid_credentials": "Invalid credentials: check your API key and folder ID"
@@ -13,42 +17,75 @@
       "reconfigure": {
         "data": {
           "folder_id": "Folder ID",
-          "api_key": "API key"
+          "api_key": "API key",
+          "enable_server_data_logging": "Server data logging"
         }
       }
     },
     "abort": {
+      "already_configured": "This account is already configured",
       "reconfigure_successful": "Configuration updated successfully"
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "data": {
-          "prompt": "Instructions",
-          "llm_hass_api": "Control Home Assistant",
-          "chat_model": "Model",
-          "enable_server_data_logging": "Server data logging",
-          "recommended": "Recommended model settings",
-          "model_version": "Version",
-          "temperature": "Temperature",
-          "max_tokens": "Maximum tokens to return in response",
-          "max_tool_iterations": "Maximum tool iterations",
-          "no_ha_default_prompt": "Ignore default Home Assistant prompt"
-        },
-        "data_description": {
-          "chat_model": "YandexGPT, Alice and third-party models (Qwen, Gemma, Llama, …) are supported. Pick a model from the list or type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
-          "llm_hass_api": "Allows the AI to control devices and call MCPs. Uses extra tokens.",
-          "prompt": "Instruct how the LLM should respond. [This can be a template]({prompt_templates_url}).",
-          "enable_server_data_logging": "Enable logging of requests on Yandex Cloud servers",
-          "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
-          "no_ha_default_prompt": "Disables automatic appending of time and devices list"
+  "config_subentries": {
+    "conversation": {
+      "entry_type": "Conversation agent",
+      "initiate_flow": {
+        "user": "Add conversation agent",
+        "reconfigure": "Reconfigure conversation agent"
+      },
+      "abort": {
+        "entry_not_loaded": "Cannot add or configure while the integration is disabled.",
+        "reconfigure_successful": "Reconfiguration successful"
+      },
+      "error": {
+        "model_not_supported_for_tools": "This model does not support function calling / tool use",
+        "model_partially_supported_for_tools": "This model has limited support for function calling / tool use: submit again to continue anyway"
+      },
+      "step": {
+        "init": {
+          "title": "Conversation agent settings",
+          "data": {
+            "prompt": "Instructions",
+            "llm_hass_api": "Control Home Assistant",
+            "chat_model": "Model",
+            "recommended": "Recommended model settings",
+            "model_version": "Version",
+            "temperature": "Temperature",
+            "max_tokens": "Maximum tokens to return in response",
+            "max_tool_iterations": "Maximum tool iterations",
+            "no_ha_default_prompt": "Ignore default Home Assistant prompt"
+          },
+          "data_description": {
+            "chat_model": "YandexGPT, Alice and third-party models (Qwen, Gemma, Llama, …) are supported. Pick a model from the list or type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
+            "llm_hass_api": "Allows the AI to control devices and call MCPs. Uses extra tokens.",
+            "prompt": "Instruct how the LLM should respond. [This can be a template]({prompt_templates_url}).",
+            "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
+            "no_ha_default_prompt": "Disables automatic appending of time and devices list"
+          }
         }
       }
     },
-    "error": {
-      "model_not_supported_for_tools": "This model does not support function calling / tool use",
-      "model_partially_supported_for_tools": "This model has limited support for function calling / tool use: submit again to continue anyway"
+    "ai_task_data": {
+      "entry_type": "AI task",
+      "initiate_flow": {
+        "user": "Add AI task",
+        "reconfigure": "Reconfigure AI task"
+      },
+      "abort": {
+        "entry_not_loaded": "Cannot add or configure while the integration is disabled.",
+        "reconfigure_successful": "Reconfiguration successful"
+      },
+      "step": {
+        "init": {
+          "data": {
+            "chat_model": "Model"
+          },
+          "data_description": {
+            "chat_model": "YandexGPT, Alice and third-party models (Qwen, Gemma, Llama, …) are supported. Pick a model from the list or type any model id. Multimodal models (deepseek-v4.1-flash, qwen3.6-35b-a3b) accept image attachments. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation."
+          }
+        }
+      }
     }
   },
   "exceptions": {
@@ -57,6 +94,13 @@
     },
     "ethics_filter": {
       "message": "The message got blocked by the ethics filter"
+    }
+  },
+  "selector": {
+    "llm_hass_api": {
+      "options": {
+        "none": "No access to entities"
+      }
     }
   }
 }

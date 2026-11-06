@@ -6,60 +6,59 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 from homeassistant.components import conversation
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import CONF_LLM_HASS_API, MATCH_ALL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, TemplateError
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import intent, template
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from . import YandexGPTConfigEntry
 from .client import YandexGPTApiError, YandexGPTClient
-from .const import (CONF_CHAT_MODEL, CONF_FOLDER_ID, CONF_MAX_TOKENS,
-                    CONF_MAX_TOOL_ITERATIONS, CONF_MODEL_VERSION,
+from .const import (CONF_MAX_TOKENS, CONF_MAX_TOOL_ITERATIONS,
                     CONF_NO_HA_DEFAULT_PROMPT, CONF_PROMPT, CONF_TEMPERATURE,
-                    DEFAULT_CHAT_MODEL, DEFAULT_INSTRUCTIONS_PROMPT_RU,
-                    DEFAULT_MAX_TOOL_ITERATIONS, DEFAULT_MODEL_VERSION,
+                    DEFAULT_INSTRUCTIONS_PROMPT_RU,
+                    DEFAULT_MAX_TOOL_ITERATIONS,
                     DEFAULT_NO_HA_DEFAULT_PROMPT, DOMAIN, LOGGER,
-                    RECOMMENDED_MAX_TOKENS, RECOMMENDED_TEMPERATURE)
+                    RECOMMENDED_MAX_TOKENS, RECOMMENDED_TEMPERATURE,
+                    SUBENTRY_TYPE_CONVERSATION)
+from .entity import YandexGPTEntity
 from .mappers import ContentConverter, StreamTransformer
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    _hass: HomeAssistant,
+    config_entry: YandexGPTConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up conversation entities."""
-    agent = YandexGPTConversationEntity(config_entry)
-    async_add_entities([agent])
+    """Set up conversation entities from subentries."""
+    for subentry_id, subentry in config_entry.subentries.items():
+        if subentry.subentry_type != SUBENTRY_TYPE_CONVERSATION:
+            continue
+        async_add_entities(
+            [YandexGPTConversationEntity(config_entry, subentry)],
+            config_subentry_id=subentry_id,
+        )
 
 
 class YandexGPTConversationEntity(
-    conversation.ConversationEntity, conversation.AbstractConversationAgent  # type: ignore
+    YandexGPTEntity,
+    conversation.ConversationEntity,
+    conversation.AbstractConversationAgent,  # type: ignore
 ):
     """YandexGPT conversation agent."""
 
-    _attr_has_entity_name = True
     _attr_name = None
     _attr_supports_streaming = True
 
-    def __init__(self, entry: ConfigEntry) -> None:
+    def __init__(self, entry: YandexGPTConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the agent."""
-        self.entry = entry
-        self._attr_unique_id = entry.entry_id
-        self._attr_device_info = dr.DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=entry.title,
-            manufacturer="Yandex",
-            model="YandexGPT",
-            entry_type=dr.DeviceEntryType.SERVICE,
-        )
-        if self.entry.options.get(CONF_LLM_HASS_API):
+        super().__init__(entry, subentry)
+        if self.subentry.data.get(CONF_LLM_HASS_API):
             self._attr_supported_features = (
                 conversation.ConversationEntityFeature.CONTROL
             )
@@ -69,14 +68,9 @@ class YandexGPTConversationEntity(
         """Return a list of supported languages."""
         return MATCH_ALL
 
-    @staticmethod
-    def _model_id(settings: dict) -> str:
-        """Build the model identifier for the OpenAI-compatible API."""
-        model = settings.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
-        if "://" in model:
-            return model
-        model_version = settings.get(CONF_MODEL_VERSION, DEFAULT_MODEL_VERSION)
-        return f"gpt://{settings[CONF_FOLDER_ID]}/{model}/{model_version}"
+    def _settings(self) -> dict[str, Any]:
+        """Merge entry data (credentials) with subentry options."""
+        return {**self.entry.data, **dict(self.subentry.data)}
 
     async def _async_handle_message(
         self,
@@ -84,7 +78,7 @@ class YandexGPTConversationEntity(
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
         """Process a conversation with YandexGPT."""
-        settings = {**self.entry.data, **self.entry.options}
+        settings = self._settings()
         client: YandexGPTClient = self.entry.runtime_data
 
         system_prompt = settings.get(CONF_PROMPT, DEFAULT_INSTRUCTIONS_PROMPT_RU)
@@ -190,9 +184,3 @@ class YandexGPTConversationEntity(
             return system_prompt
         except TemplateError as err:
             raise HomeAssistantError("Error rendering prompt template") from err
-
-    async def _async_entry_update_listener(
-        self, hass: HomeAssistant, entry: ConfigEntry
-    ) -> None:
-        """Handle options update."""
-        await hass.config_entries.async_reload(entry.entry_id)

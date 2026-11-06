@@ -69,6 +69,7 @@ class YandexGPTClient:
         api_key: str,
         *,
         enable_server_data_logging: bool = True,
+        timeout: float = 300.0,
     ) -> None:
         """Initialize the client."""
         self._client = httpx.AsyncClient(
@@ -81,7 +82,7 @@ class YandexGPTClient:
                     "true" if enable_server_data_logging else "false"
                 ),
             },
-            timeout=httpx.Timeout(300.0, connect=10.0),
+            timeout=httpx.Timeout(timeout, connect=10.0),
         )
 
     async def close(self) -> None:
@@ -116,6 +117,7 @@ class YandexGPTClient:
         temperature: float | None,
         max_tokens: int | None,
         tools: list[dict[str, Any]] | None,
+        response_format: dict[str, Any] | None,
         stream: bool,
     ) -> dict[str, Any]:
         """Build the chat completions request body."""
@@ -130,7 +132,44 @@ class YandexGPTClient:
             request["max_tokens"] = max_tokens
         if tools:
             request["tools"] = tools
+        if response_format:
+            request["response_format"] = response_format
         return request
+
+    async def complete_chat(
+        self,
+        model: str,
+        messages: list[dict[str, Any]],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        response_format: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Run a non-streaming chat completion and return the choice dict.
+
+        The result contains ``message`` and ``finish_reason``.
+        """
+        payload = self._build_request(
+            model,
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            tools=tools,
+            response_format=response_format,
+            stream=False,
+        )
+        LOGGER.debug("Sending chat request: %s", json.dumps(payload, ensure_ascii=False))
+
+        response = await self._client.post("/chat/completions", json=payload)
+        self._raise_for_status(response)
+        data = response.json()
+
+        choices = data.get("choices") or []
+        if not choices:
+            raise YandexGPTApiError("API returned an empty response")
+
+        return choices[0]
 
     async def stream_chat(
         self,
@@ -148,6 +187,7 @@ class YandexGPTClient:
             temperature=temperature,
             max_tokens=max_tokens,
             tools=tools,
+            response_format=None,
             stream=True,
         )
         LOGGER.debug("Sending chat request: %s", json.dumps(payload, ensure_ascii=False))
