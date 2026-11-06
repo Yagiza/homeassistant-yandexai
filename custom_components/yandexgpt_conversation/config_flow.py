@@ -9,9 +9,10 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Any
 
+import httpx
 import voluptuous as vol
 from homeassistant.config_entries import (ConfigEntry, ConfigFlow,
-                                          ConfigFlowResult, OptionsFlow)
+                                           ConfigFlowResult, OptionsFlow)
 from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
@@ -22,9 +23,10 @@ from homeassistant.helpers.selector import (NumberSelector,
                                             SelectSelectorMode,
                                             TemplateSelector)
 
+from .client import YandexGPTApiError, YandexGPTClient
 from .const import (ASSIST_PARTIALLY_SUPPORTED_MODELS,
                     ASSIST_UNSUPPORTED_MODELS, CHAT_MODELS,
-                    CONF_ASYNCHRONOUS_MODE, CONF_CHAT_MODEL,
+                    CONF_CHAT_MODEL,
                     CONF_ENABLE_SERVER_DATA_LOGGING, CONF_FOLDER_ID,
                     CONF_MAX_TOKENS, CONF_MAX_TOOL_ITERATIONS,
                     CONF_MODEL_VERSION, CONF_NO_HA_DEFAULT_PROMPT, CONF_PROMPT,
@@ -33,7 +35,7 @@ from .const import (ASSIST_PARTIALLY_SUPPORTED_MODELS,
                     DEFAULT_INSTRUCTIONS_PROMPT_RU,
                     DEFAULT_MAX_TOOL_ITERATIONS, DEFAULT_MODEL_VERSION,
                     DEFAULT_NO_HA_DEFAULT_PROMPT, DOC_CHAT_MODELS_URL,
-                    DOC_PRICING_URL, DOC_PROMPT_TEMPLATES_URL, DOMAIN,
+                    DOC_PRICING_URL, DOC_PROMPT_TEMPLATES_URL, DOMAIN, LOGGER,
                     RECOMMENDED_MAX_TOKENS, RECOMMENDED_TEMPERATURE)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -56,7 +58,7 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for YandexGPT."""
 
     VERSION = 1
-    MINOR_VERSION = 5  # bumped for multi-API + generic tool validation
+    MINOR_VERSION = 6  # bumped for the OpenAI-compatible API migration
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -64,6 +66,30 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
 
         if user_input is not None:
+            errors: dict[str, str] = {}
+
+            client = YandexGPTClient(
+                user_input[CONF_FOLDER_ID], user_input[CONF_API_KEY]
+            )
+            try:
+                await client.list_models()
+            except YandexGPTApiError as err:
+                if err.status_code in (401, 403):
+                    errors[CONF_API_KEY] = "invalid_credentials"
+                else:
+                    LOGGER.warning("Could not validate credentials: %s", err)
+            except httpx.HTTPError as err:
+                LOGGER.warning("Could not validate credentials: %s", err)
+            finally:
+                await client.close()
+
+            if errors:
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=STEP_USER_DATA_SCHEMA,
+                    errors=errors,
+                )
+
             return self.async_create_entry(
                 title="YandexGPT",
                 data=user_input,
@@ -109,6 +135,7 @@ class YandexGPTOptionsFlow(OptionsFlow):
         self.errors: dict[str, str] = {}
         self.last_rendered_recommended = config_entry.options.get(CONF_RECOMMENDED, False)
         self.last_selected_model: str | None = None
+        self._chat_model_options: list[SelectOptionDict] | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -138,6 +165,9 @@ class YandexGPTOptionsFlow(OptionsFlow):
                     CONF_ENABLE_SERVER_DATA_LOGGING: user_input[CONF_ENABLE_SERVER_DATA_LOGGING],
                 }
 
+        if self._chat_model_options is None:
+            self._chat_model_options = await self._async_load_chat_models()
+
         suggested_values = options.copy()
         if not suggested_values.get(CONF_PROMPT):
             suggested_values[CONF_PROMPT] = DEFAULT_INSTRUCTIONS_PROMPT_RU
@@ -149,11 +179,14 @@ class YandexGPTOptionsFlow(OptionsFlow):
                 suggested_values[CONF_LLM_HASS_API] = [] if value == "none" else [value]
 
         if suggested_values.get(CONF_CHAT_MODEL):
-            deprecated_model_name = suggested_values[CONF_CHAT_MODEL].split("/")[0]
-            suggested_values[CONF_CHAT_MODEL] = deprecated_model_name
+            model_value = suggested_values[CONF_CHAT_MODEL]
+            if "://" not in model_value:
+                suggested_values[CONF_CHAT_MODEL] = model_value.split("/")[0]
 
         schema = self.add_suggested_values_to_schema(
-            vol.Schema(yandexgpt_config_option_schema(self.hass, options)),
+            vol.Schema(yandexgpt_config_option_schema(
+                self.hass, options, self._chat_model_options
+            )),
             suggested_values,
         )
 
@@ -179,9 +212,10 @@ class YandexGPTOptionsFlow(OptionsFlow):
             return
 
         selected_model = user_input.get(CONF_CHAT_MODEL)
-        if selected_model in ASSIST_UNSUPPORTED_MODELS:
+        model_name = self._model_name(selected_model)
+        if model_name in ASSIST_UNSUPPORTED_MODELS:
             self.errors[CONF_CHAT_MODEL] = "model_not_supported_for_tools"
-        elif selected_model in ASSIST_PARTIALLY_SUPPORTED_MODELS:
+        elif model_name in ASSIST_PARTIALLY_SUPPORTED_MODELS:
             if self.last_selected_model == selected_model:
                 self.errors.pop(CONF_CHAT_MODEL, None)
             else:
@@ -189,18 +223,64 @@ class YandexGPTOptionsFlow(OptionsFlow):
 
         self.last_selected_model = selected_model
 
+    async def _async_load_chat_models(self) -> list[SelectOptionDict]:
+        """Load the available chat models, falling back to a static list."""
+        settings = {**self.config_entry.data, **self.config_entry.options}
+
+        try:
+            client = YandexGPTClient(
+                settings[CONF_FOLDER_ID], settings[CONF_API_KEY]
+            )
+            try:
+                models = await client.list_models()
+            finally:
+                await client.close()
+        except (httpx.HTTPError, YandexGPTApiError, KeyError) as err:
+            LOGGER.warning("Failed to load the model list: %s", err)
+            models = []
+
+        options = [
+            SelectOptionDict(value=model["id"], label=self._model_label(model["id"]))
+            for model in models
+        ]
+        if not options:
+            options = [
+                SelectOptionDict(value=value, label=label)
+                for value, label in CHAT_MODELS
+            ]
+        return options
+
+    @staticmethod
+    def _model_name(model_id: str | None) -> str | None:
+        """Extract the short model name from a model value (plain or gpt:// id)."""
+        if not model_id:
+            return None
+        if "://" not in model_id:
+            return model_id.split("/")[0]
+        # gpt://<folder>/<name>/<version>
+        parts = model_id.split("/")
+        return parts[3] if len(parts) == 5 else None
+
+    @staticmethod
+    def _model_label(model_id: str) -> str:
+        """Build a human-readable label from a model id like gpt://folder/name/version."""
+        parts = model_id.split("/")
+        if len(parts) == 5:
+            name, version = parts[3], parts[4]
+            return name if version == "latest" else f"{name} ({version})"
+        return model_id
+
 
 def yandexgpt_config_option_schema(
     hass: HomeAssistant,
     options: dict[str, Any] | MappingProxyType[str, Any],
+    chat_model_options: list[SelectOptionDict],
 ) -> dict:
     """Return a schema for YandexGPT completion options."""
     hass_apis: list[SelectOptionDict] = [
         SelectOptionDict(label=api.name, value=api.id)
         for api in llm.async_get_apis(hass)
     ]
-
-    chat_models = [SelectOptionDict(value=value, label=label) for value, label in CHAT_MODELS]
 
     schema = {
         vol.Optional(CONF_PROMPT): TemplateSelector(),
@@ -220,7 +300,10 @@ def yandexgpt_config_option_schema(
             default=DEFAULT_CHAT_MODEL,
         ): SelectSelector(
             SelectSelectorConfig(
-                mode=SelectSelectorMode.DROPDOWN, options=chat_models)
+                mode=SelectSelectorMode.DROPDOWN,
+                options=chat_model_options,
+                custom_value=True,
+            )
         ),
         vol.Required(
             CONF_ENABLE_SERVER_DATA_LOGGING,
@@ -269,11 +352,6 @@ def yandexgpt_config_option_schema(
                 description={"suggested_value": options.get(CONF_MAX_TOOL_ITERATIONS, DEFAULT_MAX_TOOL_ITERATIONS)},
                 default=options.get(CONF_MAX_TOOL_ITERATIONS, DEFAULT_MAX_TOOL_ITERATIONS),
             ): int,
-            vol.Optional(
-                CONF_ASYNCHRONOUS_MODE,
-                description={"suggested_value": options.get(CONF_ASYNCHRONOUS_MODE)},
-                default=options.get(CONF_ASYNCHRONOUS_MODE, False),
-            ): bool,
         }
     )
     return schema

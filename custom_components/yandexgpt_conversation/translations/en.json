@@ -5,6 +5,9 @@
         "data": {
           "folder_id": "Folder ID",
           "api_key": "API key"
+        },
+        "errors": {
+          "invalid_credentials": "Invalid credentials: check your API key and folder ID"
         }
       },
       "reconfigure": {
@@ -31,14 +34,14 @@
           "temperature": "Temperature",
           "max_tokens": "Maximum tokens to return in response",
           "max_tool_iterations": "Maximum tool iterations",
-          "no_ha_default_prompt": "Ignore default Home Assistant prompt",
-          "asynchronous_mode": "Asynchronous mode"
+          "no_ha_default_prompt": "Ignore default Home Assistant prompt"
         },
         "data_description": {
-          "chat_model": "[Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
+          "chat_model": "YandexGPT, Alice and third-party models (Qwen, Gemma, Llama, …) are supported. Pick a model from the list or type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
           "llm_hass_api": "Allows the AI to control devices and call MCPs. Uses extra tokens.",
           "prompt": "Instruct how the LLM should respond. [This can be a template]({prompt_templates_url}).",
           "enable_server_data_logging": "Enable logging of requests on Yandex Cloud servers",
+          "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
           "no_ha_default_prompt": "Disables automatic appending of time and devices list"
         }
       }
@@ -46,31 +49,6 @@
     "error": {
       "model_not_supported_for_tools": "This model does not support function calling / tool use",
       "model_partially_supported_for_tools": "This model has limited support for function calling / tool use: submit again to continue anyway"
-    }
-  },
-  "services": {
-    "generate_image": {
-      "name": "Generate image",
-      "description": "Turn a prompt into an image",
-      "fields": {
-        "config_entry": {
-          "name": "Config Entry",
-          "description": "The config entry to use for this action"
-        },
-        "seed": {
-          "name": "Seed",
-          "description": "Generation seed (any number from 0 to 2⁶³-1)"
-        },
-        "prompt": {
-          "name": "Prompt",
-          "description": "The text to turn into an image",
-          "example": "A photo of a dog"
-        },
-        "file_name": {
-          "name": "File name",
-          "description": "Output file path"
-        }
-      }
     }
   },
   "exceptions": {

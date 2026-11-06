@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from grpc.aio import AioRpcError
+import httpx
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_LLM_HASS_API, MATCH_ALL
@@ -17,11 +17,9 @@ from homeassistant.exceptions import HomeAssistantError, TemplateError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import intent, template
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from yandex_ai_studio_sdk import AsyncAIStudio
-from yandex_ai_studio_sdk._models.completions.message import \
-    CompletionsMessageType
 
-from .const import (CONF_ASYNCHRONOUS_MODE, CONF_CHAT_MODEL, CONF_MAX_TOKENS,
+from .client import YandexGPTApiError, YandexGPTClient
+from .const import (CONF_CHAT_MODEL, CONF_FOLDER_ID, CONF_MAX_TOKENS,
                     CONF_MAX_TOOL_ITERATIONS, CONF_MODEL_VERSION,
                     CONF_NO_HA_DEFAULT_PROMPT, CONF_PROMPT, CONF_TEMPERATURE,
                     DEFAULT_CHAT_MODEL, DEFAULT_INSTRUCTIONS_PROMPT_RU,
@@ -71,6 +69,15 @@ class YandexGPTConversationEntity(
         """Return a list of supported languages."""
         return MATCH_ALL
 
+    @staticmethod
+    def _model_id(settings: dict) -> str:
+        """Build the model identifier for the OpenAI-compatible API."""
+        model = settings.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
+        if "://" in model:
+            return model
+        model_version = settings.get(CONF_MODEL_VERSION, DEFAULT_MODEL_VERSION)
+        return f"gpt://{settings[CONF_FOLDER_ID]}/{model}/{model_version}"
+
     async def _async_handle_message(
         self,
         user_input: conversation.ConversationInput,
@@ -78,6 +85,7 @@ class YandexGPTConversationEntity(
     ) -> conversation.ConversationResult:
         """Process a conversation with YandexGPT."""
         settings = {**self.entry.data, **self.entry.options}
+        client: YandexGPTClient = self.entry.runtime_data
 
         system_prompt = settings.get(CONF_PROMPT, DEFAULT_INSTRUCTIONS_PROMPT_RU)
 
@@ -91,53 +99,48 @@ class YandexGPTConversationEntity(
         except conversation.ConverseError as err:
             return err.as_conversation_result()
 
-        client: AsyncAIStudio = self.entry.runtime_data
-        model_name = settings.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL).split("/")[0]
-        model_ver = settings.get(CONF_MODEL_VERSION, DEFAULT_MODEL_VERSION)
-        model_conf = {
-            "temperature": settings.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
-            "max_tokens": settings.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
-        }
+        no_ha_default_prompt = settings.get(
+            CONF_NO_HA_DEFAULT_PROMPT, DEFAULT_NO_HA_DEFAULT_PROMPT
+        )
+        system_prompt_override = (
+            await self._async_expand_prompt_template(system_prompt, user_input)
+            if no_ha_default_prompt
+            else None
+        )
 
-        no_ha_default_prompt = settings.get(CONF_NO_HA_DEFAULT_PROMPT, DEFAULT_NO_HA_DEFAULT_PROMPT)
-        system_prompt_override = await self._async_expand_prompt_template(
-            system_prompt, user_input) if no_ha_default_prompt else None
+        content_converter = ContentConverter(
+            system_prompt_override=system_prompt_override
+        )
+        messages = content_converter.to_openai_api(chat_log.content)
 
-        content_converter = ContentConverter(system_prompt_override=system_prompt_override)
-        messages: list[CompletionsMessageType] = content_converter.to_yandexgpt_api(chat_log.content)
-
+        tools = None
         if chat_log.llm_api:
-            model_conf["tools"] = [
-                ContentConverter.format_tool(client, tool, chat_log.llm_api.custom_serializer)
+            tools = [
+                ContentConverter.format_tool(tool, chat_log.llm_api.custom_serializer)
                 for tool in chat_log.llm_api.tools
             ]
 
         try:
-            model = client.models.completions(model_name, model_version=model_ver)
-            configured_model = model.configure(**model_conf)
-
-            max_tool_iterations = settings.get(CONF_MAX_TOOL_ITERATIONS, DEFAULT_MAX_TOOL_ITERATIONS)
+            max_tool_iterations = settings.get(
+                CONF_MAX_TOOL_ITERATIONS, DEFAULT_MAX_TOOL_ITERATIONS
+            )
             for _iteration in range(max_tool_iterations):
                 LOGGER.debug("Prompt: %s", messages)
 
-                if settings.get(CONF_ASYNCHRONOUS_MODE, False):
-                    operation = await configured_model.run_deferred(messages)
-                    LOGGER.debug("Async operation ID: %s", operation.id)
-                    result = await operation.wait(poll_timeout=300, poll_interval=0.5)
-
-                    async def single_result_stream():
-                        yield result
-
-                    response_stream = single_result_stream()
-                else:
-                    response_stream = configured_model.run_stream(messages)
+                response_stream = client.stream_chat(
+                    self._model_id(settings),
+                    messages,
+                    temperature=settings.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
+                    max_tokens=settings.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+                    tools=tools,
+                )
 
                 stream_transformer = StreamTransformer(response_stream)
                 content_converter = ContentConverter(
-                    stream_transformer=stream_transformer, system_prompt_override=system_prompt_override)
-
+                    system_prompt_override=system_prompt_override
+                )
                 messages.extend(
-                    content_converter.to_yandexgpt_api(
+                    content_converter.to_openai_api(
                         [
                             content
                             async for content in chat_log.async_add_delta_content_stream(
@@ -150,18 +153,19 @@ class YandexGPTConversationEntity(
 
                 if not chat_log.unresponded_tool_results:
                     break
-        except AioRpcError as err:
-            LOGGER.exception("Error talking to Yandex Cloud: %s", err)
+        except YandexGPTApiError as err:
+            LOGGER.exception("Error talking to Yandex AI Studio: %s", err)
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="yandex_cloud_error",
-                translation_placeholders={"details": str(err.details())},
+                translation_placeholders={"details": err.message},
             ) from err
-        except TimeoutError as err:
+        except httpx.HTTPError as err:
+            LOGGER.exception("Error talking to Yandex AI Studio: %s", err)
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="yandex_cloud_error",
-                translation_placeholders={"details": "Async operation timed out"},
+                translation_placeholders={"details": str(err)},
             ) from err
 
         intent_response = intent.IntentResponse(language=user_input.language)
