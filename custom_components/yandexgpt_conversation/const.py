@@ -34,6 +34,7 @@ RECOMMENDED_MAX_TOKENS = 1024
 RECOMMENDED_TEMPERATURE = 0.6
 
 DEFAULT_BASE_URL = "https://llm.api.cloud.yandex.net/v1"
+DEFAULT_IMAGE_BASE_URL = "https://ai.api.cloud.yandex.net/v1"
 
 DEFAULT_INSTRUCTIONS_PROMPT_RU = """Ты — голосовой ассистент для Home Assistant.
 Отвечай на вопросы правдиво. Отвечай кратко, чётко и на русском языке.
@@ -69,6 +70,45 @@ MULTIMODAL_MODELS = (
     "deepseek-v4.1-flash",
     "qwen3.6-35b-a3b",
 )
+
+# Yandex AI Studio image generation (Images API), tried in order
+IMAGE_MODELS = ("aliceai-image-art-3.0", "yandex-art")
+IMAGE_MODEL_LABELS = {
+    "aliceai-image-art-3.0": "Alice AI Image Art 3.0",
+    "yandex-art": "Yandex Art",
+}
+IMAGE_MODEL_VERSION = "latest"
+IMAGE_GENERATION_TIMEOUT = 120.0
+
+# AI task capabilities of Yandex AI Studio models
+CAP_TEXT_TO_TEXT = "text-to-text"
+CAP_TEXT_TO_IMAGE = "text-to-image"
+CAP_IMAGE_TO_TEXT = "image-to-text"
+
+
+def model_capabilities(model: str) -> tuple[str, ...]:
+    """Return the AI task capabilities of a Yandex AI Studio model."""
+    if "://" in model:
+        parts = model.split("/")
+        short = parts[3] if len(parts) > 3 else model
+    else:
+        short = model.split("/")[0]
+    if short in IMAGE_MODELS:
+        return (CAP_TEXT_TO_IMAGE,)
+    capabilities = [CAP_TEXT_TO_TEXT]
+    if short in MULTIMODAL_MODELS:
+        capabilities.append(CAP_IMAGE_TO_TEXT)
+    return tuple(capabilities)
+
+
+def model_capabilities_label(model: str) -> str:
+    """Return the Yandex-style capability label shown in the UI."""
+    capabilities = model_capabilities(model)
+    if CAP_TEXT_TO_IMAGE in capabilities:
+        return "text-to-image"
+    if CAP_IMAGE_TO_TEXT in capabilities:
+        return "image-text-to-text"
+    return "text-generation"
 
 DOC_CHAT_MODELS_URL = "https://aistudio.yandex.ru/docs/ai-studio/concepts/generation/models"
 DOC_PRICING_URL = "https://aistudio.yandex.ru/docs/ai-studio/pricing#common-instance-sync"

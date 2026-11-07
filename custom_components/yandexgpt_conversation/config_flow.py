@@ -27,10 +27,9 @@ from homeassistant.helpers.selector import (NumberSelector,
 from . import YandexGPTConfigEntry
 from .client import YandexGPTApiError, YandexGPTClient
 from .const import (ASSIST_PARTIALLY_SUPPORTED_MODELS,
-                    ASSIST_UNSUPPORTED_MODELS, CHAT_MODELS,
-                    CONF_CHAT_MODEL,
-                    CONF_ENABLE_SERVER_DATA_LOGGING, CONF_FOLDER_ID,
-                    CONF_MAX_TOKENS, CONF_MAX_TOOL_ITERATIONS,
+                    ASSIST_UNSUPPORTED_MODELS, CAP_TEXT_TO_TEXT, CHAT_MODELS,
+                    CONF_CHAT_MODEL, CONF_ENABLE_SERVER_DATA_LOGGING,
+                    CONF_FOLDER_ID, CONF_MAX_TOKENS, CONF_MAX_TOOL_ITERATIONS,
                     CONF_MODEL_VERSION, CONF_NO_HA_DEFAULT_PROMPT, CONF_PROMPT,
                     CONF_RECOMMENDED, CONF_TEMPERATURE, DEFAULT_AI_TASK_NAME,
                     DEFAULT_CHAT_MODEL, DEFAULT_CONVERSATION_NAME,
@@ -38,11 +37,12 @@ from .const import (ASSIST_PARTIALLY_SUPPORTED_MODELS,
                     DEFAULT_INSTRUCTIONS_PROMPT_RU,
                     DEFAULT_MAX_TOOL_ITERATIONS, DEFAULT_MODEL_VERSION,
                     DEFAULT_NO_HA_DEFAULT_PROMPT, DOC_CHAT_MODELS_URL,
-                    DOC_PRICING_URL, DOC_PROMPT_TEMPLATES_URL, DOMAIN, LOGGER,
-                    RECOMMENDED_AI_TASK_OPTIONS, RECOMMENDED_CONVERSATION_OPTIONS,
-                    RECOMMENDED_MAX_TOKENS, RECOMMENDED_TEMPERATURE,
-                    SUBENTRY_TYPE_AI_TASK_DATA, SUBENTRY_TYPE_CONVERSATION)
-
+                    DOC_PRICING_URL, DOC_PROMPT_TEMPLATES_URL, DOMAIN, IMAGE_MODELS,
+                    IMAGE_MODEL_LABELS, LOGGER, RECOMMENDED_AI_TASK_OPTIONS,
+                    RECOMMENDED_CONVERSATION_OPTIONS, RECOMMENDED_MAX_TOKENS,
+                    RECOMMENDED_TEMPERATURE, SUBENTRY_TYPE_AI_TASK_DATA,
+                    SUBENTRY_TYPE_CONVERSATION, model_capabilities,
+                    model_capabilities_label)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_FOLDER_ID): str,
@@ -311,7 +311,8 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
     def __init__(self) -> None:
         """Initialize."""
         self.options: dict[str, Any] = {}
-        self.models: dict[str, str] = {}
+        self.model_labels: dict[str, str] = {}
+        self._rendered_model: str | None = None
 
     @property
     def _is_new(self) -> bool:
@@ -336,16 +337,47 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """User flow to create / reconfigure an AI task."""
+        if self._rendered_model is None:
+            self._rendered_model = self.options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
+
         if user_input is not None:
             model_id = user_input[CONF_CHAT_MODEL]
-            title = self.models.get(model_id, _model_label(model_id))
-            if self._is_new:
-                return self.async_create_entry(title=title, data=user_input)
-            return self.async_update_and_abort(
-                self._get_entry(),
-                self._get_reconfigure_subentry(),
-                data=user_input,
+            text_changed = (
+                CAP_TEXT_TO_TEXT in model_capabilities(model_id)
+            ) != (
+                CAP_TEXT_TO_TEXT in model_capabilities(self._rendered_model)
             )
+            if model_id == self._rendered_model or not text_changed:
+                data: dict[str, Any] = {CONF_CHAT_MODEL: model_id}
+                if CAP_TEXT_TO_TEXT in model_capabilities(model_id):
+                    data[CONF_MAX_TOKENS] = (
+                        user_input.get(CONF_MAX_TOKENS) or RECOMMENDED_MAX_TOKENS
+                    )
+                title = self.model_labels.get(model_id, _model_label(model_id))
+                if self._is_new:
+                    return self.async_create_entry(title=title, data=data)
+                return self.async_update_and_abort(
+                    self._get_entry(),
+                    self._get_reconfigure_subentry(),
+                    data=data,
+                )
+            # Text<->image model: re-render to show/hide max tokens
+            self.options = {**self.options, **user_input}
+            self._rendered_model = model_id
+
+        model_id = self._rendered_model
+
+        model_options: list[SelectOptionDict] = []
+        self.model_labels = {}
+
+        def add_option(value: str, label: str) -> None:
+            model_options.append(
+                SelectOptionDict(
+                    value=value,
+                    label=f"{label} ({model_capabilities_label(value)})",
+                )
+            )
+            self.model_labels[value] = label
 
         try:
             client: YandexGPTClient = self._get_entry().runtime_data
@@ -354,37 +386,45 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
             LOGGER.warning("Failed to fetch models for AI Task: %s", err)
             models = []
 
-        model_options: list[SelectOptionDict] = []
-        self.models = {}
         for model in models:
-            model_id = model["id"]
-            label = _model_label(model_id)
-            model_options.append(SelectOptionDict(label=label, value=model_id))
-            self.models[model_id] = label
+            add_option(model["id"], _model_label(model["id"]))
+        if not models:
+            for value, label in CHAT_MODELS:
+                add_option(value, label)
 
-        if not model_options:
-            model_options = [
-                SelectOptionDict(value=value, label=label)
-                for value, label in CHAT_MODELS
-            ]
-            self.models = dict(CHAT_MODELS)
+        for image_model in IMAGE_MODELS:
+            add_option(
+                image_model, IMAGE_MODEL_LABELS.get(image_model, image_model)
+            )
+
+        schema: dict = {
+            vol.Required(
+                CONF_CHAT_MODEL,
+                default=self.options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=model_options,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    custom_value=True,
+                )
+            ),
+        }
+        if CAP_TEXT_TO_TEXT in model_capabilities(model_id):
+            schema[
+                vol.Optional(
+                    CONF_MAX_TOKENS,
+                    description={"suggested_value": self.options.get(CONF_MAX_TOKENS)},
+                    default=RECOMMENDED_MAX_TOKENS,
+                )
+            ] = int
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_CHAT_MODEL,
-                        default=self.options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
-                    ): SelectSelector(
-                        SelectSelectorConfig(
-                            options=model_options,
-                            mode=SelectSelectorMode.DROPDOWN,
-                            custom_value=True,
-                        )
-                    ),
-                }
-            ),
+            data_schema=vol.Schema(schema),
+            description_placeholders={
+                "chat_model_doc_url": DOC_CHAT_MODELS_URL,
+                "pricing_doc_url": DOC_PRICING_URL,
+            },
         )
 
 

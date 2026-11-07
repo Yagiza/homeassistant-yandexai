@@ -17,6 +17,7 @@ See [description in English](#yandexgpt-integration-for-home-assistant) below �
 - YandexGPT можно использовать в автоматизациях, например, для создания чат-бота в Telegram.
 - Поддержка OpenAI-совместимых моделей AI Studio: YandexGPT, Alice и сторонние модели (Qwen, Gemma, Llama и другие).
 - Можно создать несколько ассистентов с разными моделями и настройками, а также использовать YandexGPT в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) (извлечение данных, анализ текста и т.д.).
+- Генерация изображений моделью YandexART (Images API) в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/).
 
 YandexGPT — это облачный сервис, плата за который взимается в соответствии с тарифами Yandex Cloud. При первой регистрации [можно получить стартовый грант](https://yandex.cloud/ru/docs/getting-started/usage-grant).
 
@@ -34,6 +35,20 @@ TLDR: Добавьте интеграцию, используя голубые �
   <img src="https://github.com/user-attachments/assets/c4f2520d-a1e7-433b-99d6-9db29b2c99f1" height="340px" alt="Assist" />
   <img src="https://github.com/user-attachments/assets/34f05829-7a10-4087-8596-5087b8310533" height="340px" alt="Morning digests" />
 </p>
+
+## Генерация изображений
+
+AI Task-сущность умеет генерировать изображения моделью YandexART:
+
+```yaml
+service: ai_task.generate_image
+data:
+  task_name: "Котик"
+  instructions: "Милый кот сидит на подоконнике, акварель"
+  entity_id: ai_task.yandexgpt_ai_task
+```
+
+Изображение сохраняется в [медиа-источник ИИ-задач](https://www.home-assistant.io/integrations/ai_task/) (`media-source://ai_task/image/...`), сервис возвращает `media_source_id` и ссылку `url` (действует 1 час). Формат — JPEG, подсказка — только текст. Сервисному аккаунту нужна роль `ai.imageGeneration.user`.
 
 ## Альтернативы
 
@@ -72,12 +87,27 @@ AI-powered assistant for your smart home. This integration bridges [YandexGPT](h
 - Useful for creating Telegram chatbots and other automations.
 - Supports OpenAI-compatible AI Studio models: YandexGPT, Alice and third-party models (Qwen, Gemma, Llama, …).
 - You can create multiple agents with different models and settings, and use YandexGPT in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) (data extraction, text analysis, etc.).
+- Image generation with the YandexART model (Images API) in [AI tasks](https://www.home-assistant.io/integrations/ai_task/).
 
 YandexGPT is a cloud service with pricing according to Yandex Cloud tariffs.
 
 ## Set up
 
 Use blue buttons above to install and configure the integration. Please check out the official documentation on how to retrieve [folder ID](https://yandex.cloud/en/docs/resource-manager/operations/folder/get-id) and [API key](https://yandex.cloud/en/docs/iam/operations/api-key/create). For a service account it's required to set the following role: `ai.languageModels.user`.
+
+## Image generation
+
+The AI Task entity can generate images with the YandexART model:
+
+```yaml
+service: ai_task.generate_image
+data:
+  task_name: "Kitten"
+  instructions: "A cute cat sitting on a windowsill, watercolor"
+  entity_id: ai_task.yandexgpt_ai_task
+```
+
+The image is stored in the [AI task media source](https://www.home-assistant.io/integrations/ai_task/) (`media-source://ai_task/image/...`); the service returns `media_source_id` and an `url` (valid for 1 hour). Output format is JPEG, the prompt is text only. The service account needs the `ai.imageGeneration.user` role.
 
 ## Notice
 

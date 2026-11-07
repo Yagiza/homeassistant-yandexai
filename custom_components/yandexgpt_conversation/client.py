@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from typing import Any
 import httpx
 from httpx_sse import EventSource
 
-from .const import DEFAULT_BASE_URL, LOGGER
+from .const import DEFAULT_BASE_URL, DEFAULT_IMAGE_BASE_URL, LOGGER
 
 
 class YandexGPTApiError(Exception):
@@ -46,6 +47,15 @@ class StreamChunk:
     tool_calls: list[ToolCall] | None = None
 
 
+@dataclass
+class GeneratedImage:
+    """Result of an image generation request."""
+
+    image_bytes: bytes
+    mime_type: str
+    model_version: str = ""
+
+
 def _error_message_from_body(body: Any) -> str | None:
     """Extract a human-readable message from an API error body."""
     if isinstance(body, dict):
@@ -57,6 +67,19 @@ def _error_message_from_body(body: Any) -> str | None:
             return error
         if message := body.get("message"):
             return str(message)
+    return None
+
+
+def _detect_image_mime(image_bytes: bytes) -> str | None:
+    """Detect the mime type of an image from its magic bytes."""
+    if image_bytes.startswith(b"\x89PNG"):
+        return "image/png"
+    if image_bytes.startswith(b"\xff\xd8"):
+        return "image/jpeg"
+    if image_bytes[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        return "image/webp"
     return None
 
 
@@ -72,6 +95,7 @@ class YandexGPTClient:
         timeout: float = 300.0,
     ) -> None:
         """Initialize the client."""
+        self._folder_id = folder_id
         self._client = httpx.AsyncClient(
             base_url=DEFAULT_BASE_URL,
             headers={
@@ -170,6 +194,46 @@ class YandexGPTClient:
             raise YandexGPTApiError("API returned an empty response")
 
         return choices[0]
+
+    async def generate_image(
+        self,
+        model_uri: str,
+        prompt: str,
+        *,
+        size: str = "1024x1024",
+        timeout: float = 120.0,
+    ) -> GeneratedImage:
+        """Generate an image via the OpenAI-compatible images endpoint.
+
+        The request is synchronous: the response already contains the
+        image as base64, no operation polling is needed.
+        """
+        payload: dict[str, Any] = {
+            "model": model_uri,
+            "prompt": prompt,
+            "size": size,
+            "n": 1,
+            "response_format": "b64_json",
+        }
+        LOGGER.debug("Sending image generation request: %s", model_uri)
+
+        response = await self._client.post(
+            f"{DEFAULT_IMAGE_BASE_URL}/images/generations",
+            json=payload,
+            timeout=timeout,
+        )
+        self._raise_for_status(response)
+        data = response.json()
+        items = data.get("data") or []
+        if not items or not (image_b64 := items[0].get("b64_json")):
+            raise YandexGPTApiError("API returned no image data")
+
+        image_bytes = base64.b64decode(image_b64)
+        return GeneratedImage(
+            image_bytes=image_bytes,
+            mime_type=_detect_image_mime(image_bytes) or "image/png",
+            model_version=data.get("model") or "",
+        )
 
     async def stream_chat(
         self,
