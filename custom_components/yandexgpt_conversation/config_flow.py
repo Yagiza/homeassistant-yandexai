@@ -24,7 +24,6 @@ from homeassistant.helpers.selector import (NumberSelector,
                                             SelectSelectorMode,
                                             TemplateSelector)
 
-from . import YandexGPTConfigEntry
 from .client import YandexGPTApiError, YandexGPTClient
 from .const import (ASSIST_PARTIALLY_SUPPORTED_MODELS,
                     ASSIST_UNSUPPORTED_MODELS, CAP_TEXT_TO_TEXT, CHAT_MODELS,

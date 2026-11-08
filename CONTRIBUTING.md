@@ -25,7 +25,7 @@ PR с исправлениями и улучшениями всегда прив
 3. Будьте готовы к тому, что я могу попросить внести правки.
 
 Полезные ссылки:
-- [Документация Yandex Cloud ML SDK](https://yandex.cloud/ru/docs/ai-studio/sdk/)
+- [Документация Yandex Cloud AI Studio](https://yandex.cloud/ru/docs/ai-studio/)
 
 Спасибо за ваш вклад!
 
@@ -58,6 +58,6 @@ PRs with fixes and improvements are always welcome! The process is simple:
 3. Be prepared that I might ask for changes or clarifications.
 
 Useful links:
-- [Yandex Cloud ML SDK Documentation](https://yandex.cloud/en/docs/ai-studio/sdk/)
+- [Yandex Cloud AI Studio Documentation](https://yandex.cloud/en/docs/ai-studio/)
 
 Thank you for your contribution!

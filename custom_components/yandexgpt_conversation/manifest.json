@@ -11,8 +11,8 @@
   "issue_tracker": "https://github.com/black-roland/homeassistant-yandexgpt/issues",
   "loggers": ["yandexgpt_conversation"],
   "requirements": [
-    "get-annotations>=0.1.2",
-    "httpx-sse>=0.4.1"
+    "httpx-sse>=0.4.1",
+    "probatio>=0.13.0"
   ],
   "version": "2.7.0"
 }
