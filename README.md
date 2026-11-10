@@ -26,7 +26,7 @@ Yandex AI Studio — это облачный сервис, плата за ко�
 
 ## Установка и настройка
 
-Инструкции по получению ключа API и настройке интеграции можно найти в [wiki](https://github.com/black-roland/homeassistant-yandexgpt/wiki).
+Инструкции по получению ключа API и настройке интеграции можно найти в [wiki](https://github.com/Yagiza/homeassistant-yandexai/wiki).
 
 TLDR: Добавьте интеграцию, используя голубые кнопки выше, а затем получите [идентификатор каталога](https://yandex.cloud/ru/docs/resource-manager/operations/folder/get-id) и [ключ API](https://yandex.cloud/en/docs/iam/operations/api-key/create). Сервисному аккаунту нужно указать роль `ai.languageModels.user`.
 

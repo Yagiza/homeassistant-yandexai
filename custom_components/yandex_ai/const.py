@@ -112,4 +112,4 @@ def model_capabilities_label(model: str) -> str:
 
 DOC_CHAT_MODELS_URL = "https://aistudio.yandex.ru/docs/ai-studio/concepts/generation/models"
 DOC_PRICING_URL = "https://aistudio.yandex.ru/docs/ai-studio/pricing#common-instance-sync"
-DOC_PROMPT_TEMPLATES_URL = "https://github.com/black-roland/homeassistant-yandexgpt/wiki/%D0%98%D1%81%D0%BF%D0%BE%D0%BB%D1%8C%D0%B7%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5-%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D0%BE%D0%B2-%D0%B2-%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%BD%D0%BE%D0%BC-%D0%BF%D1%80%D0%BE%D0%BC%D0%BF%D1%82%D0%B5"  # noqa: E501
+DOC_PROMPT_TEMPLATES_URL = "https://github.com/Yagiza/homeassistant-yandexai/wiki/%D0%98%D1%81%D0%BF%D0%BE%D0%BB%D1%8C%D0%B7%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5-%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D0%BE%D0%B2-%D0%B2-%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%BD%D0%BE%D0%BC-%D0%BF%D1%80%D0%BE%D0%BC%D0%BF%D1%82%D0%B5"  # noqa: E501

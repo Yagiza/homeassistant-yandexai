@@ -101,7 +101,7 @@ class YandexGPTClient:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "OpenAI-Project": folder_id,
-                "User-Agent": "homeassistant-yandexgpt",
+                "User-Agent": "homeassistant-yandexai",
                 "x-data-logging-enabled": (
                     "true" if enable_server_data_logging else "false"
                 ),
