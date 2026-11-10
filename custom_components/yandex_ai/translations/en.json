@@ -57,7 +57,7 @@
             "no_ha_default_prompt": "Ignore default Home Assistant prompt"
           },
           "data_description": {
-            "chat_model": "Alice AI, YandexGPT and third-party models (Qwen, Gemma, Llama, …) are supported. Pick a model from the list or type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
+            "chat_model": "Alice AI, YandexGPT and third-party models (Qwen and DeepSeek) are supported. Pick a model from the list or type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
             "llm_hass_api": "Allows the AI to control devices and call MCPs. Uses extra tokens.",
             "prompt": "Instruct how the LLM should respond. [This can be a template]({prompt_templates_url}).",
             "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
