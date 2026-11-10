@@ -1,4 +1,4 @@
-"""Base entity for the YandexGPT integration."""
+"""Base entity for the Yandex AI integration."""
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -102,7 +102,7 @@ class YandexGPTEntity(Entity):
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
             manufacturer="Yandex",
-            model="YandexGPT",
+            model="Yandex AI",
             entry_type=dr.DeviceEntryType.SERVICE,
         )
 

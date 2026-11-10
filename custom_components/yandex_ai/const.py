@@ -1,4 +1,4 @@
-"""Constants for the YandexGPT Conversation integration."""
+"""Constants for the Yandex AI integration."""
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -9,7 +9,7 @@ import logging
 from homeassistant.const import CONF_LLM_HASS_API
 from homeassistant.helpers import llm
 
-DOMAIN = "yandexgpt_conversation"
+DOMAIN = "yandex_ai"
 LOGGER = logging.getLogger(__package__)
 
 SUBENTRY_TYPE_CONVERSATION = "conversation"
@@ -52,8 +52,8 @@ RECOMMENDED_AI_TASK_OPTIONS = {
     CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
 }
 
-DEFAULT_CONVERSATION_NAME = "YandexGPT"
-DEFAULT_AI_TASK_NAME = "YandexGPT AI Task"
+DEFAULT_CONVERSATION_NAME = "Yandex AI"
+DEFAULT_AI_TASK_NAME = "Yandex AI Task"
 
 # Fallback list of known chat models, used when GET /models is unavailable
 CHAT_MODELS = (

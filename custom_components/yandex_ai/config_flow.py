@@ -1,4 +1,4 @@
-"""Config flow for YandexGPT integration."""
+"""Config flow for Yandex AI integration."""
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -75,7 +75,7 @@ def _model_label(model_id: str) -> str:
 
 
 class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for YandexGPT."""
+    """Handle a config flow for Yandex AI."""
 
     VERSION = 2
     MINOR_VERSION = 2
@@ -116,7 +116,7 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         return self.async_create_entry(
-            title="YandexGPT",
+            title="Yandex AI",
             data=user_input,
             subentries=[
                 {
@@ -432,7 +432,7 @@ def yandexgpt_config_option_schema(
     options: dict[str, Any] | MappingProxyType[str, Any],
     chat_model_options: list[SelectOptionDict],
 ) -> dict:
-    """Return a schema for YandexGPT completion options."""
+    """Return a schema for Yandex AI completion options."""
     hass_apis: list[SelectOptionDict] = [
         SelectOptionDict(label=api.name, value=api.id)
         for api in llm.async_get_apis(hass)

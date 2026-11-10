@@ -1,4 +1,4 @@
-"""AI Task platform for the YandexGPT integration."""
+"""AI Task platform for the Yandex AI integration."""
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -130,7 +130,7 @@ async def async_setup_entry(
 
 
 class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
-    """YandexGPT AI Task entity."""
+    """Yandex AI Task entity."""
 
     _attr_name = None
 

@@ -1,4 +1,4 @@
-"""The YandexGPT integration."""
+"""The Yandex AI integration."""
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -33,13 +33,13 @@ type YandexGPTConfigEntry = ConfigEntry[YandexGPTClient]  # type: ignore[name-de
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the YandexGPT component."""
+    """Set up the Yandex AI component."""
     await async_migrate_integration(hass)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: YandexGPTConfigEntry) -> bool:
-    """Set up YandexGPT from a config entry."""
+    """Set up Yandex AI from a config entry."""
     _async_ensure_default_subentries(hass, entry)
 
     enable_server_data_logging = entry.data.get(
@@ -125,7 +125,7 @@ def _async_ensure_default_subentries(
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: YandexGPTConfigEntry) -> bool:
-    """Unload YandexGPT."""
+    """Unload Yandex AI."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         await entry.runtime_data.close()
@@ -138,7 +138,7 @@ async def async_migrate_integration(hass: HomeAssistant) -> None:
     if not entries:
         return
 
-    LOGGER.info("Migrating YandexGPT to subentries (v2)")
+    LOGGER.info("Migrating Yandex AI to subentries (v2)")
 
     api_keys_entries: dict[tuple[str, str], tuple[YandexGPTConfigEntry, bool]] = {}
     entity_registry = er.async_get(hass)
@@ -220,7 +220,7 @@ async def async_migrate_integration(hass: HomeAssistant) -> None:
         else:
             hass.config_entries.async_update_entry(
                 entry,
-                title="YandexGPT",
+                title="Yandex AI",
                 data={**entry.data, CONF_ENABLE_SERVER_DATA_LOGGING: enable_server_data_logging},
                 options={},
                 version=2,

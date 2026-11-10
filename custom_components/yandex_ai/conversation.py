@@ -1,4 +1,4 @@
-"""The conversation platform for the YandexGPT integration."""
+"""The conversation platform for the Yandex AI integration."""
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -50,7 +50,7 @@ class YandexGPTConversationEntity(
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,  # type: ignore
 ):
-    """YandexGPT conversation agent."""
+    """Yandex AI conversation agent."""
 
     _attr_name = None
     _attr_supports_streaming = True
@@ -77,7 +77,7 @@ class YandexGPTConversationEntity(
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
-        """Process a conversation with YandexGPT."""
+        """Process a conversation with Yandex AI."""
         settings = self._settings()
         client: YandexGPTClient = self.entry.runtime_data
 

@@ -1,6 +1,6 @@
 # Участие в разработке
 
-Спасибо, что интересуетесь разработкой интеграции YandexGPT для Home Assistant!
+Спасибо, что интересуетесь разработкой интеграции Yandex AI для Home Assistant!
 
 Если вы хотите предложить исправления или новые функции, вот несколько рекомендаций.
 
@@ -33,7 +33,7 @@ PR с исправлениями и улучшениями всегда прив
 
 # Contributing
 
-Thank you for your interest in developing the YandexGPT integration for Home Assistant!
+Thank you for your interest in developing the Yandex AI integration for Home Assistant!
 
 If you'd like to suggest fixes or new features, here are a few guidelines.
 

@@ -18,18 +18,18 @@ jobs:
         uses: technote-space/package-version-check-action@v1.9.3
         with:
           COMMIT_DISABLED: true
-          PACKAGE_DIR: ${{ github.workspace }}/custom_components/yandexgpt_conversation
+          PACKAGE_DIR: ${{ github.workspace }}/custom_components/yandex_ai
           PACKAGE_NAME: manifest.json
       - name: "Compress"
         shell: "bash"
         run: |
-          cd "${{ github.workspace }}/custom_components/yandexgpt_conversation"
-          zip -r "${{ runner.temp }}/yandexgpt.zip" ./
+          cd "${{ github.workspace }}/custom_components/yandex_ai"
+          zip -r "${{ runner.temp }}/yandex_ai.zip" ./
       - name: "Publish"
         uses: softprops/action-gh-release@v3.0.3
         with:
           draft: true
-          files: ${{ runner.temp }}/yandexgpt.zip
+          files: ${{ runner.temp }}/yandex_ai.zip
           body: >
             [![Количество скачиваний](https://img.shields.io/github/downloads/black-roland/homeassistant-yandexgpt/${{ github.ref_name }}/total?style=flat-square)](https://github.com/black-roland/homeassistant-yandexgpt/releases)
             [![Поддержать обновления](https://img.shields.io/badge/%D0%9F%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C_%D0%BE%D0%B1%D0%BD%D0%BE%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F-Boosty-FF6B6B?style=flat-square&logo=boosty)](https://boosty.to/mansmarthome/about?utm_source=github&utm_medium=referral&utm_campaign=gpt)
