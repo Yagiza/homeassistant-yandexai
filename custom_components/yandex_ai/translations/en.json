@@ -1,5 +1,10 @@
 {
   "config": {
+    "error": {
+      "invalid_credentials": "Invalid credentials: check your API key and folder ID",
+      "model_not_supported_for_tools": "This model does not support function calling / tool use",
+      "model_partially_supported_for_tools": "This model has limited support for function calling / tool use: submit again to continue anyway"
+    },
     "step": {
       "user": {
         "data": {
@@ -9,9 +14,6 @@
         },
         "data_description": {
           "enable_server_data_logging": "Enable logging of requests on Yandex Cloud servers"
-        },
-        "errors": {
-          "invalid_credentials": "Invalid credentials: check your API key and folder ID"
         }
       },
       "conversation": {
@@ -33,10 +35,6 @@
           "prompt": "Instruct how the LLM should respond. [This can be a template]({prompt_templates_url}).",
           "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
           "no_ha_default_prompt": "Disables automatic appending of time and devices list"
-        },
-        "error": {
-          "model_not_supported_for_tools": "This model does not support function calling / tool use",
-          "model_partially_supported_for_tools": "This model has limited support for function calling / tool use: submit again to continue anyway"
         }
       },
       "ai_task": {
