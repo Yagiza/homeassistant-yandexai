@@ -74,11 +74,33 @@ def _model_label(model_id: str) -> str:
     return model_id
 
 
+def _friendly_model_label(model_id: str) -> str:
+    """Return the preferred label for a known model when available."""
+    labels = dict(CHAT_MODELS)
+    short_name = _model_name(model_id)
+    if short_name and short_name in labels:
+        return labels[short_name]
+    return _model_label(model_id)
+
+
 class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Yandex AI."""
 
     VERSION = 2
     MINOR_VERSION = 2
+
+    def __init__(self) -> None:
+        """Initialize."""
+        self._credentials: dict[str, Any] | None = None
+        self._chat_model_options: list[SelectOptionDict] = []
+        self._conversation_options: dict[str, Any] = {}
+        self._conversation_data: dict[str, Any] = {}
+        self._conversation_errors: dict[str, str] = {}
+        self._last_rendered_recommended: bool = False
+        self._last_selected_model: str | None = None
+        self._ai_task_options: dict[str, Any] = {}
+        self._ai_task_rendered_model: str | None = None
+        self._ai_task_model_labels: dict[str, str] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -115,24 +137,248 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors=errors,
             )
 
+        self._credentials = user_input
+        self._chat_model_options = await self._async_load_initial_chat_models(
+            user_input
+        )
+        self._conversation_options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
+        self._conversation_data = {}
+        self._conversation_errors = {}
+        self._last_rendered_recommended = self._conversation_options[CONF_RECOMMENDED]
+        self._last_selected_model = None
+        self._ai_task_options = RECOMMENDED_AI_TASK_OPTIONS.copy()
+        self._ai_task_rendered_model = self._ai_task_options.get(
+            CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL
+        )
+        self._ai_task_model_labels = {}
+        return await self.async_step_conversation()
+
+    async def async_step_conversation(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Configure the default conversation subentry."""
+        if user_input is not None:
+            recommended = user_input[CONF_RECOMMENDED]
+
+            if recommended == self._last_rendered_recommended:
+                if not user_input.get(CONF_LLM_HASS_API):
+                    user_input.pop(CONF_LLM_HASS_API, None)
+
+                self._validate_conversation_model(user_input)
+
+                if self._conversation_errors:
+                    self._conversation_options = {
+                        **self._conversation_options,
+                        **user_input,
+                    }
+                else:
+                    self._conversation_data = user_input
+                    return await self.async_step_ai_task()
+            else:
+                self._last_rendered_recommended = recommended
+                self._conversation_options = dict(user_input)
+
+        suggested_values = dict(self._conversation_options)
+        if not suggested_values.get(CONF_PROMPT):
+            suggested_values[CONF_PROMPT] = DEFAULT_INSTRUCTIONS_PROMPT_RU
+
+        if CONF_LLM_HASS_API in suggested_values:
+            value = suggested_values[CONF_LLM_HASS_API]
+            if isinstance(value, str):
+                suggested_values[CONF_LLM_HASS_API] = [] if value == "none" else [value]
+
+        if suggested_values.get(CONF_CHAT_MODEL):
+            model_value = suggested_values[CONF_CHAT_MODEL]
+            if "://" not in model_value:
+                suggested_values[CONF_CHAT_MODEL] = model_value.split("/")[0]
+
+        schema = self.add_suggested_values_to_schema(
+            vol.Schema(
+                yandexgpt_config_option_schema(
+                    self.hass, suggested_values, self._chat_model_options
+                )
+            ),
+            suggested_values,
+        )
+
+        return self.async_show_form(
+            step_id="conversation",
+            data_schema=schema,
+            errors=self._conversation_errors,
+            description_placeholders={
+                "chat_model_doc_url": DOC_CHAT_MODELS_URL,
+                "pricing_doc_url": DOC_PRICING_URL,
+                "prompt_templates_url": DOC_PROMPT_TEMPLATES_URL,
+            },
+        )
+
+    async def async_step_ai_task(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Configure the default AI task subentry."""
+        if self._ai_task_rendered_model is None:
+            self._ai_task_rendered_model = self._ai_task_options.get(
+                CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL
+            )
+
+        if user_input is not None:
+            model_id = user_input[CONF_CHAT_MODEL]
+            text_changed = (
+                CAP_TEXT_TO_TEXT in model_capabilities(model_id)
+            ) != (
+                CAP_TEXT_TO_TEXT
+                in model_capabilities(self._ai_task_rendered_model)
+            )
+            if model_id == self._ai_task_rendered_model or not text_changed:
+                ai_task_data: dict[str, Any] = {CONF_CHAT_MODEL: model_id}
+                if CAP_TEXT_TO_TEXT in model_capabilities(model_id):
+                    ai_task_data[CONF_MAX_TOKENS] = (
+                        user_input.get(CONF_MAX_TOKENS) or RECOMMENDED_MAX_TOKENS
+                    )
+                return self._async_create_entry(ai_task_data)
+
+            self._ai_task_options = {**self._ai_task_options, **user_input}
+            self._ai_task_rendered_model = model_id
+
+        model_id = self._ai_task_rendered_model
+        model_options: list[SelectOptionDict] = []
+        self._ai_task_model_labels = {}
+
+        def add_option(value: str, label: str) -> None:
+            model_options.append(
+                SelectOptionDict(
+                    value=value,
+                    label=f"{label} ({model_capabilities_label(value)})",
+                )
+            )
+            self._ai_task_model_labels[value] = label
+
+        for option in self._chat_model_options:
+            add_option(option["value"], option["label"])
+
+        for image_model in IMAGE_MODELS:
+            add_option(
+                image_model, IMAGE_MODEL_LABELS.get(image_model, image_model)
+            )
+
+        schema: dict = {
+            vol.Required(
+                CONF_CHAT_MODEL,
+                default=self._ai_task_options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=model_options,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    custom_value=True,
+                )
+            ),
+        }
+        if CAP_TEXT_TO_TEXT in model_capabilities(model_id):
+            schema[
+                vol.Optional(
+                    CONF_MAX_TOKENS,
+                    description={
+                        "suggested_value": self._ai_task_options.get(CONF_MAX_TOKENS)
+                    },
+                    default=RECOMMENDED_MAX_TOKENS,
+                )
+            ] = int
+
+        return self.async_show_form(
+            step_id="ai_task",
+            data_schema=vol.Schema(schema),
+            description_placeholders={
+                "chat_model_doc_url": DOC_CHAT_MODELS_URL,
+                "pricing_doc_url": DOC_PRICING_URL,
+            },
+        )
+
+    def _validate_conversation_model(self, user_input: dict[str, Any]) -> None:
+        """Validate model when any LLM HASS API (Assist or MCP) is selected."""
+        llm_apis: list[str] = user_input.get(CONF_LLM_HASS_API) or []
+        if isinstance(llm_apis, str):
+            llm_apis = [llm_apis] if llm_apis != "none" else []
+
+        if not llm_apis:
+            self._conversation_errors.pop(CONF_CHAT_MODEL, None)
+            return
+
+        selected_model = user_input.get(CONF_CHAT_MODEL)
+        model_name = _model_name(selected_model)
+        if model_name in ASSIST_UNSUPPORTED_MODELS:
+            self._conversation_errors[CONF_CHAT_MODEL] = (
+                "model_not_supported_for_tools"
+            )
+        elif model_name in ASSIST_PARTIALLY_SUPPORTED_MODELS:
+            if self._last_selected_model == selected_model:
+                self._conversation_errors.pop(CONF_CHAT_MODEL, None)
+            else:
+                self._conversation_errors[CONF_CHAT_MODEL] = (
+                    "model_partially_supported_for_tools"
+                )
+
+        self._last_selected_model = selected_model
+
+    def _async_create_entry(
+        self, ai_task_data: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Create the config entry with both default subentries."""
+        conversation_data = (
+            self._conversation_data or RECOMMENDED_CONVERSATION_OPTIONS.copy()
+        )
         return self.async_create_entry(
             title="Yandex AI",
-            data=user_input,
+            data=self._credentials or {},
             subentries=[
                 {
                     "subentry_type": SUBENTRY_TYPE_CONVERSATION,
-                    "data": RECOMMENDED_CONVERSATION_OPTIONS,
+                    "data": conversation_data,
                     "title": DEFAULT_CONVERSATION_NAME,
                     "unique_id": None,
                 },
                 {
                     "subentry_type": SUBENTRY_TYPE_AI_TASK_DATA,
-                    "data": RECOMMENDED_AI_TASK_OPTIONS,
+                    "data": ai_task_data,
                     "title": DEFAULT_AI_TASK_NAME,
                     "unique_id": None,
                 },
             ],
         )
+
+    async def _async_load_initial_chat_models(
+        self, user_input: dict[str, Any]
+    ) -> list[SelectOptionDict]:
+        """Load available chat models from the provided credentials."""
+        client = YandexGPTClient(
+            user_input[CONF_FOLDER_ID],
+            user_input[CONF_API_KEY],
+            enable_server_data_logging=user_input.get(
+                CONF_ENABLE_SERVER_DATA_LOGGING,
+                DEFAULT_ENABLE_SERVER_DATA_LOGGING,
+            ),
+            timeout=10.0,
+        )
+        try:
+            models = await client.list_models()
+        except (httpx.HTTPError, YandexGPTApiError) as err:
+            LOGGER.warning("Failed to load the model list: %s", err)
+            models = []
+        finally:
+            await client.close()
+
+        options = [
+            SelectOptionDict(
+                value=model["id"],
+                label=_friendly_model_label(model["id"]),
+            )
+            for model in models
+        ]
+        if not options:
+            options = [
+                SelectOptionDict(value=value, label=label)
+                for value, label in CHAT_MODELS
+            ]
+        return options
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -293,7 +539,10 @@ class ConversationFlowHandler(ConfigSubentryFlow):
             models = []
 
         options = [
-            SelectOptionDict(value=model["id"], label=_model_label(model["id"]))
+            SelectOptionDict(
+                value=model["id"],
+                label=_friendly_model_label(model["id"]),
+            )
             for model in models
         ]
         if not options:
@@ -352,7 +601,9 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
                     data[CONF_MAX_TOKENS] = (
                         user_input.get(CONF_MAX_TOKENS) or RECOMMENDED_MAX_TOKENS
                     )
-                title = self.model_labels.get(model_id, _model_label(model_id))
+                title = self.model_labels.get(
+                    model_id, _friendly_model_label(model_id)
+                )
                 if self._is_new:
                     return self.async_create_entry(title=title, data=data)
                 return self.async_update_and_abort(
@@ -386,7 +637,7 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
             models = []
 
         for model in models:
-            add_option(model["id"], _model_label(model["id"]))
+            add_option(model["id"], _friendly_model_label(model["id"]))
         if not models:
             for value, label in CHAT_MODELS:
                 add_option(value, label)

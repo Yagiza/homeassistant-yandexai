@@ -14,5 +14,5 @@
     "httpx-sse>=0.4.1",
     "probatio>=0.13.0"
   ],
-  "version": "3.0.0"
+  "version": "3.0.1"
 }

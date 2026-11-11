@@ -14,6 +14,41 @@
           "invalid_credentials": "Invalid credentials: check your API key and folder ID"
         }
       },
+      "conversation": {
+        "title": "Conversation agent settings",
+        "data": {
+          "prompt": "Instructions",
+          "llm_hass_api": "Control Home Assistant",
+          "chat_model": "Model",
+          "recommended": "Recommended model settings",
+          "model_version": "Version",
+          "temperature": "Temperature",
+          "max_tokens": "Maximum tokens to return in response",
+          "max_tool_iterations": "Maximum tool iterations",
+          "no_ha_default_prompt": "Ignore default Home Assistant prompt"
+        },
+        "data_description": {
+          "chat_model": "Alice AI, YandexGPT and third-party models (Qwen and DeepSeek) are supported. Pick a model from the list or type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
+          "llm_hass_api": "Allows the AI to control devices and call MCPs. Uses extra tokens.",
+          "prompt": "Instruct how the LLM should respond. [This can be a template]({prompt_templates_url}).",
+          "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
+          "no_ha_default_prompt": "Disables automatic appending of time and devices list"
+        },
+        "error": {
+          "model_not_supported_for_tools": "This model does not support function calling / tool use",
+          "model_partially_supported_for_tools": "This model has limited support for function calling / tool use: submit again to continue anyway"
+        }
+      },
+      "ai_task": {
+        "title": "AI task settings",
+        "data": {
+          "chat_model": "Model",
+          "max_tokens": "Maximum tokens to return in response"
+        },
+        "data_description": {
+          "chat_model": "One model is used for all tasks of this AI task. The capability in parentheses defines what the task can do: text-generation — text generation, image-text-to-text — understands images and generates text, text-to-image — image generation. Alice AI, YandexGPT and third-party models (Qwen and DeepSeek) are supported; you can type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation."
+        }
+      },
       "reconfigure": {
         "data": {
           "folder_id": "Folder ID",
