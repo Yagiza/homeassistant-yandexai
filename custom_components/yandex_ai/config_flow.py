@@ -30,8 +30,7 @@ from .const import (ASSIST_PARTIALLY_SUPPORTED_MODELS,
                     CONF_CHAT_MODEL, CONF_ENABLE_SERVER_DATA_LOGGING,
                     CONF_FOLDER_ID, CONF_MAX_TOKENS, CONF_MAX_TOOL_ITERATIONS,
                     CONF_MODEL_VERSION, CONF_NO_HA_DEFAULT_PROMPT, CONF_PROMPT,
-                    CONF_RECOMMENDED, CONF_TEMPERATURE, DEFAULT_AI_TASK_NAME,
-                    DEFAULT_CHAT_MODEL, DEFAULT_CONVERSATION_NAME,
+                    CONF_RECOMMENDED, CONF_TEMPERATURE, DEFAULT_CHAT_MODEL,
                     DEFAULT_ENABLE_SERVER_DATA_LOGGING,
                     DEFAULT_INSTRUCTIONS_PROMPT_RU,
                     DEFAULT_MAX_TOOL_ITERATIONS, DEFAULT_MODEL_VERSION,
@@ -40,8 +39,8 @@ from .const import (ASSIST_PARTIALLY_SUPPORTED_MODELS,
                     IMAGE_MODEL_LABELS, LOGGER, RECOMMENDED_AI_TASK_OPTIONS,
                     RECOMMENDED_CONVERSATION_OPTIONS, RECOMMENDED_MAX_TOKENS,
                     RECOMMENDED_TEMPERATURE, SUBENTRY_TYPE_AI_TASK_DATA,
-                    SUBENTRY_TYPE_CONVERSATION, model_capabilities,
-                    model_capabilities_label)
+                    SUBENTRY_TYPE_CONVERSATION, friendly_model_label,
+                    model_capabilities, model_capabilities_label)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_FOLDER_ID): str,
@@ -63,24 +62,6 @@ def _model_name(model_id: str | None) -> str | None:
     # gpt://<folder>/<name>/<version>
     parts = model_id.split("/")
     return parts[3] if len(parts) == 5 else None
-
-
-def _model_label(model_id: str) -> str:
-    """Build a human-readable label from a model id like gpt://folder/name/version."""
-    parts = model_id.split("/")
-    if len(parts) == 5:
-        name, version = parts[3], parts[4]
-        return name if version == "latest" else f"{name} ({version})"
-    return model_id
-
-
-def _friendly_model_label(model_id: str) -> str:
-    """Return the preferred label for a known model when available."""
-    labels = dict(CHAT_MODELS)
-    short_name = _model_name(model_id)
-    if short_name and short_name in labels:
-        return labels[short_name]
-    return _model_label(model_id)
 
 
 class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -326,6 +307,13 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
         conversation_data = (
             self._conversation_data or RECOMMENDED_CONVERSATION_OPTIONS.copy()
         )
+        conversation_title = (
+            f"{friendly_model_label(conversation_data.get(CONF_CHAT_MODEL))} "
+            "Conversation"
+        )
+        ai_task_title = (
+            f"{friendly_model_label(ai_task_data.get(CONF_CHAT_MODEL))} Task"
+        )
         return self.async_create_entry(
             title="Yandex AI",
             data=self._credentials or {},
@@ -333,13 +321,13 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     "subentry_type": SUBENTRY_TYPE_CONVERSATION,
                     "data": conversation_data,
-                    "title": DEFAULT_CONVERSATION_NAME,
+                    "title": conversation_title,
                     "unique_id": None,
                 },
                 {
                     "subentry_type": SUBENTRY_TYPE_AI_TASK_DATA,
                     "data": ai_task_data,
-                    "title": DEFAULT_AI_TASK_NAME,
+                    "title": ai_task_title,
                     "unique_id": None,
                 },
             ],
@@ -369,7 +357,7 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
         options = [
             SelectOptionDict(
                 value=model["id"],
-                label=_friendly_model_label(model["id"]),
+                label=friendly_model_label(model["id"]),
             )
             for model in models
         ]
@@ -454,8 +442,8 @@ class ConversationFlowHandler(ConfigSubentryFlow):
                     self.options = {**self.options, **user_input}
                 elif self._is_new:
                     title = (
-                        _model_name(user_input.get(CONF_CHAT_MODEL))
-                        or DEFAULT_CHAT_MODEL
+                        f"{friendly_model_label(user_input.get(CONF_CHAT_MODEL))} "
+                        "Conversation"
                     )
                     return self.async_create_entry(title=title, data=user_input)
                 else:
@@ -541,7 +529,7 @@ class ConversationFlowHandler(ConfigSubentryFlow):
         options = [
             SelectOptionDict(
                 value=model["id"],
-                label=_friendly_model_label(model["id"]),
+                label=friendly_model_label(model["id"]),
             )
             for model in models
         ]
@@ -601,8 +589,9 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
                     data[CONF_MAX_TOKENS] = (
                         user_input.get(CONF_MAX_TOKENS) or RECOMMENDED_MAX_TOKENS
                     )
-                title = self.model_labels.get(
-                    model_id, _friendly_model_label(model_id)
+                title = (
+                    f"{self.model_labels.get(model_id, friendly_model_label(model_id))} "
+                    "Task"
                 )
                 if self._is_new:
                     return self.async_create_entry(title=title, data=data)
@@ -637,7 +626,7 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
             models = []
 
         for model in models:
-            add_option(model["id"], _friendly_model_label(model["id"]))
+            add_option(model["id"], friendly_model_label(model["id"]))
         if not models:
             for value, label in CHAT_MODELS:
                 add_option(value, label)

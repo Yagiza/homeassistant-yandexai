@@ -19,12 +19,13 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .client import YandexGPTApiError, YandexGPTClient
-from .const import (CONF_ENABLE_SERVER_DATA_LOGGING, CONF_FOLDER_ID,
-                    DEFAULT_AI_TASK_NAME, DEFAULT_CONVERSATION_NAME,
+from .const import (CONF_CHAT_MODEL, CONF_ENABLE_SERVER_DATA_LOGGING,
+                    CONF_FOLDER_ID, DEFAULT_CHAT_MODEL,
                     DEFAULT_ENABLE_SERVER_DATA_LOGGING, DOMAIN, LOGGER,
                     RECOMMENDED_AI_TASK_OPTIONS,
                     RECOMMENDED_CONVERSATION_OPTIONS,
-                    SUBENTRY_TYPE_AI_TASK_DATA, SUBENTRY_TYPE_CONVERSATION)
+                    SUBENTRY_TYPE_AI_TASK_DATA, SUBENTRY_TYPE_CONVERSATION,
+                    friendly_model_label)
 
 PLATFORMS = (Platform.CONVERSATION, Platform.AI_TASK)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -99,23 +100,31 @@ def _async_ensure_default_subentries(
     }
 
     if SUBENTRY_TYPE_CONVERSATION not in subentry_types:
+        conversation_title = (
+            f"{friendly_model_label(RECOMMENDED_CONVERSATION_OPTIONS.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL))} "
+            "Conversation"
+        )
         hass.config_entries.async_add_subentry(
             entry,
             ConfigSubentry(
                 data=MappingProxyType(RECOMMENDED_CONVERSATION_OPTIONS),
                 subentry_type=SUBENTRY_TYPE_CONVERSATION,
-                title=DEFAULT_CONVERSATION_NAME,
+                title=conversation_title,
                 unique_id=None,
             ),
         )
 
     if SUBENTRY_TYPE_AI_TASK_DATA not in subentry_types:
+        ai_task_title = (
+            f"{friendly_model_label(RECOMMENDED_AI_TASK_OPTIONS.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL))} "
+            "Task"
+        )
         hass.config_entries.async_add_subentry(
             entry,
             ConfigSubentry(
                 data=MappingProxyType(RECOMMENDED_AI_TASK_OPTIONS),
                 subentry_type=SUBENTRY_TYPE_AI_TASK_DATA,
-                title=DEFAULT_AI_TASK_NAME,
+                title=ai_task_title,
                 unique_id=None,
             ),
         )

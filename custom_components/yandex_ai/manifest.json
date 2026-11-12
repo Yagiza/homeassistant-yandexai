@@ -13,5 +13,5 @@
   "requirements": [
     "httpx-sse>=0.4.1"
   ],
-  "version": "3.0.1"
+  "version": "3.0.2"
 }

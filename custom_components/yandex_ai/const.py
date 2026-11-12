@@ -52,9 +52,6 @@ RECOMMENDED_AI_TASK_OPTIONS = {
     CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
 }
 
-DEFAULT_CONVERSATION_NAME = "Yandex AI"
-DEFAULT_AI_TASK_NAME = "Yandex AI Task"
-
 # Fallback list of known chat models, used when GET /models is unavailable
 CHAT_MODELS = (
     ("yandexgpt-lite", "YandexGPT Lite"),
@@ -77,6 +74,38 @@ IMAGE_MODEL_LABELS = {
     "aliceai-image-art-3.0": "Alice AI Image Art 3.0",
     "yandex-art": "Yandex Art",
 }
+
+
+def _model_short_name(model_id: str | None) -> str | None:
+    """Extract the short model name from a model value (plain or gpt:// id)."""
+    if not model_id:
+        return None
+    if "://" not in model_id:
+        return model_id.split("/")[0]
+    parts = model_id.split("/")
+    return parts[3] if len(parts) == 5 else None
+
+
+def _model_display_label(model_id: str) -> str:
+    """Build a human-readable label from a model id like gpt://folder/name/version."""
+    parts = model_id.split("/")
+    if len(parts) == 5:
+        name, version = parts[3], parts[4]
+        return name if version == "latest" else f"{name} ({version})"
+    return model_id
+
+
+def friendly_model_label(model_id: str | None) -> str:
+    """Return the preferred label for a known model when available."""
+    if not model_id:
+        model_id = DEFAULT_CHAT_MODEL
+    labels = dict(CHAT_MODELS) | IMAGE_MODEL_LABELS
+    short_name = _model_short_name(model_id)
+    if short_name and short_name in labels:
+        return labels[short_name]
+    return _model_display_label(model_id)
+
+
 IMAGE_MODEL_VERSION = "latest"
 IMAGE_GENERATION_TIMEOUT = 120.0
 
