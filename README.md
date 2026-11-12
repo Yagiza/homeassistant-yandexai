@@ -19,7 +19,7 @@ See [description in English](#yandex-ai-integration-for-home-assistant) below �
 - Yandex AI можно использовать в автоматизациях, например, для создания чат-бота в Telegram.
 - Поддержка моделей Yandex AI Studio через OpenAI-совместимый API: Alice AI, YandexGPT и сторонние модели (Qwen и DeepSeek); также можно ввести любой идентификатор модели.
 - Можно создать несколько ассистентов с разными моделями и настройками, а также использовать Yandex AI в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) (извлечение данных, анализ текста и т.д.).
-- Генерация изображений в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) с помощью YandexART, более современной Alice AI ART, а также сторонних моделей DeepSeek и Qwen.
+- Генерация изображений в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) с помощью Alice AI Image Art 3.0 и Yandex Art.
 - **Анализ изображений** в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) с помощью мультимодальных моделей DeepSeek и Qwen.
 
 Yandex AI Studio — это облачный сервис, плата за который взимается в соответствии с тарифами Yandex Cloud. При первой регистрации [можно получить стартовый грант](https://yandex.cloud/ru/docs/getting-started/usage-grant).
@@ -28,7 +28,7 @@ Yandex AI Studio — это облачный сервис, плата за ко�
 
 Инструкции по получению ключа API и настройке интеграции можно найти в [wiki](https://github.com/Yagiza/homeassistant-yandexai/wiki).
 
-TLDR: Добавьте интеграцию, используя голубые кнопки выше, а затем получите [идентификатор каталога](https://yandex.cloud/ru/docs/resource-manager/operations/folder/get-id) и [ключ API](https://yandex.cloud/en/docs/iam/operations/api-key/create). Сервисному аккаунту нужно указать роль `ai.languageModels.user`.
+TLDR: Добавьте интеграцию, используя голубые кнопки выше, а затем получите [идентификатор каталога](https://yandex.cloud/ru/docs/resource-manager/operations/folder/get-id) и [ключ API](https://yandex.cloud/ru/docs/iam/operations/api-key/create). Сервисному аккаунту нужно указать роль `ai.languageModels.user`.
 
 ## Примеры использования
 
@@ -41,14 +41,14 @@ TLDR: Добавьте интеграцию, используя голубые �
 
 ## Генерация изображений
 
-AI Task-сущность умеет генерировать изображения моделями YandexART, более современной Alice AI ART, а также сторонними моделями DeepSeek и Qwen:
+Сущность AI Task умеет генерировать изображения моделями Alice AI Image Art 3.0 и Yandex Art:
 
 ```yaml
 service: ai_task.generate_image
 data:
   task_name: "Котик"
   instructions: "Милый кот сидит на подоконнике, акварель"
-  entity_id: ai_task.yandex_ai_task
+  entity_id: ai_task.yandex_art_task  # entity_id вашей AI Task-сущности
 ```
 
 Изображение сохраняется в [медиа-источник ИИ-задач](https://www.home-assistant.io/integrations/ai_task/) (`media-source://ai_task/image/...`), сервис возвращает `media_source_id` и ссылку `url` (действует 1 час). Формат — JPEG, подсказка — только текст. Сервисному аккаунту нужна роль `ai.imageGeneration.user`.
@@ -61,7 +61,7 @@ data:
 
 ## Спасибо
 
-Интеграция оказалась полезной? Хотите сказать спасибо? Кофе автору оригинальной интеграции — ваша благодарность ему. <kbd>[☕ На кофе](https://mansmarthome.info/donate/?utm_source=github&utm_medium=referral&utm_campaign=gpt#%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0-%D0%B1%D1%8B%D1%81%D1%82%D1%80%D1%8B%D1%85-%D0%BF%D0%BB%D0%B0%D1%82%D0%B5%D0%B6%D0%B5%D0%B9)</kbd> У меня нет учётных записей в сервисах доната, поэтому меня можно поблагодарить просто подлившись ссылкой на данную интеграцию с друзьями и знакомыми. Мне будет приятно осознавать, что кто-то пользуется плодами моего труда.
+Интеграция оказалась полезной? Хотите сказать спасибо? Кофе автору оригинальной интеграции — ваша благодарность ему. <kbd>[☕ На кофе](https://mansmarthome.info/donate/?utm_source=github&utm_medium=referral&utm_campaign=gpt#%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0-%D0%B1%D1%8B%D1%81%D1%82%D1%80%D1%8B%D1%85-%D0%BF%D0%BB%D0%B0%D1%82%D0%B5%D0%B6%D0%B5%D0%B9)</kbd> У меня нет учётных записей в сервисах доната, поэтому меня можно поблагодарить просто поделившись ссылкой на данную интеграцию с друзьями и знакомыми. Мне будет приятно осознавать, что кто-то пользуется плодами моего труда.
 
 Большое спасибо всем, кто поддерживает авторов обеих интеграций:
 
@@ -69,7 +69,7 @@ data:
 
 ## Уведомление
 
-Это независимая интеграция, разработанная сообществом. Данная интеграция не связана с Яндексом или Яндекс Облаком. Yandex AI Studio — это сервис, предоставляемый Яндекс Облаком.
+Это независимая интеграция, разработанная сообществом. Данная интеграция не связана с Яндексом или Yandex Cloud. Yandex AI Studio — это сервис Yandex Cloud.
 
 Данная интеграция не является официальным продуктом Яндекса и не поддерживается Яндексом.
 
@@ -92,7 +92,7 @@ This integration is a fork of the [YandexGPT integration](https://github.com/bla
 - Useful for creating Telegram chatbots and other automations.
 - Supports Yandex AI Studio models via the OpenAI-compatible API: Alice AI, YandexGPT, and third-party models (Qwen and DeepSeek); any model id can be entered.
 - You can create multiple agents with different models and settings, and use Yandex AI in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) (data extraction, text analysis, etc.).
-- Image generation in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) with YandexART, the newer Alice AI ART, and third-party DeepSeek and Qwen models.
+- Image generation in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) with Alice AI Image Art 3.0 and Yandex Art.
 - **Image analysis** in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) with multimodal DeepSeek and Qwen models.
 
 Yandex AI Studio is a cloud service with pricing according to Yandex Cloud tariffs.
@@ -103,14 +103,14 @@ Use blue buttons above to install and configure the integration. Please check ou
 
 ## Image generation
 
-The AI Task entity can generate images with YandexART, the newer Alice AI ART, and third-party DeepSeek and Qwen models:
+The AI Task entity can generate images with Alice AI Image Art 3.0 and Yandex Art:
 
 ```yaml
 service: ai_task.generate_image
 data:
   task_name: "Kitten"
   instructions: "A cute cat sitting on a windowsill, watercolor"
-  entity_id: ai_task.yandex_ai_task
+  entity_id: ai_task.yandex_art_task  # entity_id of your AI Task entity
 ```
 
 The image is stored in the [AI task media source](https://www.home-assistant.io/integrations/ai_task/) (`media-source://ai_task/image/...`); the service returns `media_source_id` and an `url` (valid for 1 hour). Output format is JPEG, the prompt is text only. The service account needs the `ai.imageGeneration.user` role.
