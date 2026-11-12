@@ -25,7 +25,7 @@ from . import YandexGPTConfigEntry
 from .client import GeneratedImage, YandexGPTApiError, YandexGPTClient
 from .const import (CAP_IMAGE_TO_TEXT, CAP_TEXT_TO_IMAGE, CAP_TEXT_TO_TEXT,
                     CONF_CHAT_MODEL, CONF_FOLDER_ID, CONF_MAX_TOKENS,
-                    CONF_TEMPERATURE, DEFAULT_CHAT_MODEL, DOMAIN,
+                    CONF_TEMPERATURE, DEFAULT_AI_TASK_MODEL, DOMAIN,
                     IMAGE_GENERATION_TIMEOUT, IMAGE_MODELS, IMAGE_MODEL_VERSION,
                     LOGGER, RECOMMENDED_MAX_TOKENS, RECOMMENDED_TEMPERATURE,
                     SUBENTRY_TYPE_AI_TASK_DATA, model_capabilities)
@@ -139,7 +139,7 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
         super().__init__(entry, subentry)
         options = {**dict(entry.data), **dict(subentry.data)}
         capabilities = model_capabilities(
-            options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
+            options.get(CONF_CHAT_MODEL, DEFAULT_AI_TASK_MODEL)
         )
         features = 0
         if CAP_TEXT_TO_TEXT in capabilities:

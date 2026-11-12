@@ -26,6 +26,7 @@ CONF_ENABLE_SERVER_DATA_LOGGING = "enable_server_data_logging"
 CONF_MAX_TOOL_ITERATIONS = "max_tool_iterations"
 CONF_NO_HA_DEFAULT_PROMPT = "no_ha_default_prompt"
 DEFAULT_CHAT_MODEL = "aliceai-llm"
+DEFAULT_AI_TASK_MODEL = "aliceai-image-art-3.0"
 DEFAULT_MODEL_VERSION = "latest"
 DEFAULT_NO_HA_DEFAULT_PROMPT = False
 DEFAULT_ENABLE_SERVER_DATA_LOGGING = True
@@ -49,7 +50,7 @@ RECOMMENDED_CONVERSATION_OPTIONS = {
 }
 
 RECOMMENDED_AI_TASK_OPTIONS = {
-    CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
+    CONF_CHAT_MODEL: DEFAULT_AI_TASK_MODEL,
 }
 
 # Fallback list of known chat models, used when GET /models is unavailable
@@ -69,7 +70,7 @@ MULTIMODAL_MODELS = (
 )
 
 # Yandex AI Studio image generation (Images API), tried in order
-IMAGE_MODELS = ("aliceai-image-art-3.0", "yandex-art")
+IMAGE_MODELS = (DEFAULT_AI_TASK_MODEL, "yandex-art")
 IMAGE_MODEL_LABELS = {
     "aliceai-image-art-3.0": "Alice AI Image Art 3.0",
     "yandex-art": "Yandex Art",

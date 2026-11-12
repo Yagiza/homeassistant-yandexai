@@ -20,7 +20,8 @@ from homeassistant.helpers.typing import ConfigType
 
 from .client import YandexGPTApiError, YandexGPTClient
 from .const import (CONF_CHAT_MODEL, CONF_ENABLE_SERVER_DATA_LOGGING,
-                    CONF_FOLDER_ID, DEFAULT_CHAT_MODEL,
+                    CONF_FOLDER_ID, DEFAULT_AI_TASK_MODEL,
+                    DEFAULT_CHAT_MODEL,
                     DEFAULT_ENABLE_SERVER_DATA_LOGGING, DOMAIN, LOGGER,
                     RECOMMENDED_AI_TASK_OPTIONS,
                     RECOMMENDED_CONVERSATION_OPTIONS,
@@ -116,7 +117,7 @@ def _async_ensure_default_subentries(
 
     if SUBENTRY_TYPE_AI_TASK_DATA not in subentry_types:
         ai_task_title = (
-            f"{friendly_model_label(RECOMMENDED_AI_TASK_OPTIONS.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL))} "
+            f"{friendly_model_label(RECOMMENDED_AI_TASK_OPTIONS.get(CONF_CHAT_MODEL, DEFAULT_AI_TASK_MODEL))} "
             "Task"
         )
         hass.config_entries.async_add_subentry(

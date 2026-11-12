@@ -30,7 +30,8 @@ from .const import (ASSIST_PARTIALLY_SUPPORTED_MODELS,
                     CONF_CHAT_MODEL, CONF_ENABLE_SERVER_DATA_LOGGING,
                     CONF_FOLDER_ID, CONF_MAX_TOKENS, CONF_MAX_TOOL_ITERATIONS,
                     CONF_MODEL_VERSION, CONF_NO_HA_DEFAULT_PROMPT, CONF_PROMPT,
-                    CONF_RECOMMENDED, CONF_TEMPERATURE, DEFAULT_CHAT_MODEL,
+                    CONF_RECOMMENDED, CONF_TEMPERATURE,
+                    DEFAULT_AI_TASK_MODEL, DEFAULT_CHAT_MODEL,
                     DEFAULT_ENABLE_SERVER_DATA_LOGGING,
                     DEFAULT_INSTRUCTIONS_PROMPT_RU,
                     DEFAULT_MAX_TOOL_ITERATIONS, DEFAULT_MODEL_VERSION,
@@ -129,7 +130,7 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
         self._last_selected_model = None
         self._ai_task_options = RECOMMENDED_AI_TASK_OPTIONS.copy()
         self._ai_task_rendered_model = self._ai_task_options.get(
-            CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL
+            CONF_CHAT_MODEL, DEFAULT_AI_TASK_MODEL
         )
         self._ai_task_model_labels = {}
         return await self.async_step_conversation()
@@ -199,7 +200,7 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
         """Configure the default AI task subentry."""
         if self._ai_task_rendered_model is None:
             self._ai_task_rendered_model = self._ai_task_options.get(
-                CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL
+                CONF_CHAT_MODEL, DEFAULT_AI_TASK_MODEL
             )
 
         if user_input is not None:
@@ -245,7 +246,7 @@ class YandexGPTConfigFlow(ConfigFlow, domain=DOMAIN):
         schema: dict = {
             vol.Required(
                 CONF_CHAT_MODEL,
-                default=self._ai_task_options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
+                default=self._ai_task_options.get(CONF_CHAT_MODEL, DEFAULT_AI_TASK_MODEL),
             ): SelectSelector(
                 SelectSelectorConfig(
                     options=model_options,
@@ -574,7 +575,7 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """User flow to create / reconfigure an AI task."""
         if self._rendered_model is None:
-            self._rendered_model = self.options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
+            self._rendered_model = self.options.get(CONF_CHAT_MODEL, DEFAULT_AI_TASK_MODEL)
 
         if user_input is not None:
             model_id = user_input[CONF_CHAT_MODEL]
@@ -639,7 +640,7 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
         schema: dict = {
             vol.Required(
                 CONF_CHAT_MODEL,
-                default=self.options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
+                default=self.options.get(CONF_CHAT_MODEL, DEFAULT_AI_TASK_MODEL),
             ): SelectSelector(
                 SelectSelectorConfig(
                     options=model_options,
