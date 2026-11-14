@@ -15,10 +15,10 @@ from typing import Any
 import httpx
 from httpx_sse import EventSource
 
-from .const import DEFAULT_BASE_URL, DEFAULT_IMAGE_BASE_URL, LOGGER
+from .const import (DEFAULT_BASE_URL, DEFAULT_IMAGE_BASE_URL, LOGGER)
 
 
-class YandexGPTApiError(Exception):
+class YandexAIStudioError(Exception):
     """Error returned by the Yandex AI Studio API."""
 
     def __init__(self, message: str, status_code: int | None = None) -> None:
@@ -49,11 +49,10 @@ class StreamChunk:
 
 @dataclass
 class GeneratedImage:
-    """Result of an image generation request."""
+    """A single generated image from the Yandex AI API."""
 
     image_bytes: bytes
     mime_type: str
-    model_version: str = ""
 
 
 def _error_message_from_body(body: Any) -> str | None:
@@ -83,7 +82,7 @@ def _detect_image_mime(image_bytes: bytes) -> str | None:
     return None
 
 
-class YandexGPTClient:
+class YandexAIClient:
     """Client for the OpenAI-compatible Yandex AI Studio chat API."""
 
     def __init__(
@@ -114,7 +113,7 @@ class YandexGPTClient:
         await self._client.aclose()
 
     def _raise_for_status(self, response: httpx.Response) -> None:
-        """Raise a YandexGPTApiError with a readable message on HTTP errors."""
+        """Raise a YandexAIStudioError with a readable message on HTTP errors."""
         if response.status_code < 400:
             return
         message: str | None = None
@@ -124,7 +123,7 @@ class YandexGPTClient:
             pass
         if not message:
             message = response.reason_phrase or response.text[:200]
-        raise YandexGPTApiError(message, status_code=response.status_code)
+        raise YandexAIStudioError(message, status_code=response.status_code)
 
     async def list_models(self) -> list[dict[str, str]]:
         """Return the chat models available to this account."""
@@ -142,6 +141,13 @@ class YandexGPTClient:
         max_tokens: int | None,
         tools: list[dict[str, Any]] | None,
         response_format: dict[str, Any] | None,
+        reasoning_effort: str | None,
+        top_p: float | None,
+        stop: str | list[str] | None,
+        seed: int | None,
+        frequency_penalty: float | None,
+        presence_penalty: float | None,
+        top_k: int | None,
         stream: bool,
     ) -> dict[str, Any]:
         """Build the chat completions request body."""
@@ -158,6 +164,26 @@ class YandexGPTClient:
             request["tools"] = tools
         if response_format:
             request["response_format"] = response_format
+        if reasoning_effort:
+            request["reasoning_effort"] = reasoning_effort
+        if top_p is not None:
+            request["top_p"] = top_p
+        if stop:
+            if isinstance(stop, str):
+                stop_items = [part.strip() for part in stop.splitlines()]
+            else:
+                stop_items = [str(part).strip() for part in stop]
+            stop_items = [part for part in stop_items if part]
+            if stop_items:
+                request["stop"] = stop_items
+        if seed is not None:
+            request["seed"] = seed
+        if frequency_penalty is not None:
+            request["frequency_penalty"] = frequency_penalty
+        if presence_penalty is not None:
+            request["presence_penalty"] = presence_penalty
+        if top_k is not None:
+            request["top_k"] = top_k
         return request
 
     async def complete_chat(
@@ -169,6 +195,13 @@ class YandexGPTClient:
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
         response_format: dict[str, Any] | None = None,
+        reasoning_effort: str | None = None,
+        top_p: float | None = None,
+        stop: str | list[str] | None = None,
+        seed: int | None = None,
+        frequency_penalty: float | None = None,
+        presence_penalty: float | None = None,
+        top_k: int | None = None,
     ) -> dict[str, Any]:
         """Run a non-streaming chat completion and return the choice dict.
 
@@ -181,6 +214,13 @@ class YandexGPTClient:
             max_tokens=max_tokens,
             tools=tools,
             response_format=response_format,
+            reasoning_effort=reasoning_effort,
+            top_p=top_p,
+            stop=stop,
+            seed=seed,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            top_k=top_k,
             stream=False,
         )
         LOGGER.debug("Sending chat request: %s", json.dumps(payload, ensure_ascii=False))
@@ -191,7 +231,7 @@ class YandexGPTClient:
 
         choices = data.get("choices") or []
         if not choices:
-            raise YandexGPTApiError("API returned an empty response")
+            raise YandexAIStudioError("API returned an empty response")
 
         return choices[0]
 
@@ -200,22 +240,39 @@ class YandexGPTClient:
         model_uri: str,
         prompt: str,
         *,
-        size: str = "1024x1024",
+        size: str | None = None,
+        n: int | None = None,
+        seed: int | None = None,
+        negative_prompt: str | None = None,
         timeout: float = 120.0,
     ) -> GeneratedImage:
         """Generate an image via the OpenAI-compatible images endpoint.
 
         The request is synchronous: the response already contains the
-        image as base64, no operation polling is needed.
+        image as base64, no operation polling is needed. When ``n`` is
+        greater than one, only the first generated image is returned.
+        ``size``, ``n``, ``seed`` and ``negative_prompt`` are sent only
+        when provided.
         """
         payload: dict[str, Any] = {
             "model": model_uri,
             "prompt": prompt,
-            "size": size,
-            "n": 1,
             "response_format": "b64_json",
         }
-        LOGGER.debug("Sending image generation request: %s", model_uri)
+        if size is not None and str(size).strip():
+            payload["size"] = str(size).strip()
+        if n is not None:
+            payload["n"] = int(n)
+        if seed is not None:
+            payload["seed"] = seed
+        if negative_prompt:
+            payload["negative_prompt"] = negative_prompt
+        LOGGER.debug(
+            "Sending image generation request: %s (size=%s, n=%s)",
+            model_uri,
+            payload.get("size"),
+            payload.get("n"),
+        )
 
         response = await self._client.post(
             f"{DEFAULT_IMAGE_BASE_URL}/images/generations",
@@ -226,13 +283,12 @@ class YandexGPTClient:
         data = response.json()
         items = data.get("data") or []
         if not items or not (image_b64 := items[0].get("b64_json")):
-            raise YandexGPTApiError("API returned no image data")
+            raise YandexAIStudioError("API returned no image data")
 
         image_bytes = base64.b64decode(image_b64)
         return GeneratedImage(
             image_bytes=image_bytes,
             mime_type=_detect_image_mime(image_bytes) or "image/png",
-            model_version=data.get("model") or "",
         )
 
     async def stream_chat(
@@ -243,6 +299,13 @@ class YandexGPTClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
+        reasoning_effort: str | None = None,
+        top_p: float | None = None,
+        stop: str | list[str] | None = None,
+        seed: int | None = None,
+        frequency_penalty: float | None = None,
+        presence_penalty: float | None = None,
+        top_k: int | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Stream a chat completion from the model."""
         payload = self._build_request(
@@ -252,6 +315,13 @@ class YandexGPTClient:
             max_tokens=max_tokens,
             tools=tools,
             response_format=None,
+            reasoning_effort=reasoning_effort,
+            top_p=top_p,
+            stop=stop,
+            seed=seed,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            top_k=top_k,
             stream=True,
         )
         LOGGER.debug("Sending chat request: %s", json.dumps(payload, ensure_ascii=False))
@@ -268,10 +338,10 @@ class YandexGPTClient:
                 try:
                     data = json.loads(sse.data)
                 except ValueError:
-                    raise YandexGPTApiError("Malformed stream response") from None
+                    raise YandexAIStudioError("Malformed stream response") from None
 
                 if error := data.get("error"):
-                    raise YandexGPTApiError(
+                    raise YandexAIStudioError(
                         _error_message_from_body({"error": error})
                         or "streaming error"
                     )

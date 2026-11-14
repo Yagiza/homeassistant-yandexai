@@ -20,16 +20,19 @@ from homeassistant.helpers.entity import Entity
 from probatio import Schema as ProbatioSchema
 from probatio import to_openapi
 
-from .client import YandexGPTApiError, YandexGPTClient
-from .const import (CONF_CHAT_MODEL, CONF_FOLDER_ID, CONF_MAX_TOKENS,
-                    CONF_MAX_TOOL_ITERATIONS, CONF_MODEL_VERSION,
-                    CONF_TEMPERATURE, DEFAULT_CHAT_MODEL,
+from .client import YandexAIStudioError, YandexAIClient
+from .const import (CONF_CHAT_MODEL, CONF_FOLDER_ID, CONF_FREQUENCY_PENALTY,
+                    CONF_MAX_TOKENS, CONF_MAX_TOOL_ITERATIONS,
+                    CONF_MODEL_VERSION, CONF_PRESENCE_PENALTY,
+                    CONF_REASONING_EFFORT, CONF_SEED, CONF_STOP,
+                    CONF_TEMPERATURE, CONF_TOP_K, CONF_TOP_P, DEFAULT_CHAT_MODEL,
                     DEFAULT_MAX_TOOL_ITERATIONS, DEFAULT_MODEL_VERSION,
-                    DOMAIN, LOGGER, MULTIMODAL_MODELS, RECOMMENDED_MAX_TOKENS,
-                    RECOMMENDED_TEMPERATURE)
+                    DOMAIN, LOGGER, MULTIMODAL_MODELS,
+                    RECOMMENDED_TEMPERATURE,
+                    reasoning_effort_api_value)
 from .mappers import ContentConverter, _tool_args_to_dict
 
-type YandexGPTConfigEntry = ConfigEntry[YandexGPTClient]  # type: ignore[name-defined]
+type YandexAIConfigEntry = ConfigEntry[YandexAIClient]  # type: ignore[name-defined]
 
 
 def _adjust_schema(schema: dict[str, Any]) -> None:
@@ -88,12 +91,12 @@ def _message_to_delta(message: dict[str, Any]) -> conversation.AssistantContentD
     return data
 
 
-class YandexGPTEntity(Entity):
+class YandexAIEntity(Entity):
     """Shared base entity."""
 
     _attr_has_entity_name = True
 
-    def __init__(self, entry: YandexGPTConfigEntry, subentry: ConfigSubentry) -> None:
+    def __init__(self, entry: YandexAIConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the shared entity."""
         self.entry = entry
         self.subentry = subentry
@@ -175,7 +178,7 @@ class YandexGPTEntity(Entity):
             **dict(self.entry.data),
             **dict(self.subentry.data),
         }
-        client: YandexGPTClient = self.entry.runtime_data
+        client: YandexAIClient = self.entry.runtime_data
 
         tools = None
         if chat_log.llm_api:
@@ -202,16 +205,27 @@ class YandexGPTEntity(Entity):
         for _iteration in range(
             options.get(CONF_MAX_TOOL_ITERATIONS, DEFAULT_MAX_TOOL_ITERATIONS)
         ):
+            model_id = self._model_id(options)
+            reasoning_effort = reasoning_effort_api_value(
+                model_id, options.get(CONF_REASONING_EFFORT)
+            )
             try:
                 choice = await client.complete_chat(
-                    self._model_id(options),
+                    model_id,
                     messages,
                     temperature=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
-                    max_tokens=options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+                    max_tokens=options.get(CONF_MAX_TOKENS),
                     tools=tools,
                     response_format=response_format,
+                    reasoning_effort=reasoning_effort,
+                    top_p=options.get(CONF_TOP_P),
+                    stop=options.get(CONF_STOP),
+                    seed=options.get(CONF_SEED),
+                    frequency_penalty=options.get(CONF_FREQUENCY_PENALTY),
+                    presence_penalty=options.get(CONF_PRESENCE_PENALTY),
+                    top_k=options.get(CONF_TOP_K),
                 )
-            except YandexGPTApiError as err:
+            except YandexAIStudioError as err:
                 LOGGER.exception("Error talking to Yandex AI Studio: %s", err)
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,
@@ -234,7 +248,7 @@ class YandexGPTEntity(Entity):
                 )
             if not message.get("content") and not message.get("tool_calls"):
                 raise HomeAssistantError(
-                    "YandexGPT returned an empty response "
+                    "Yandex AI Studio returned an empty response "
                     f"(finish_reason: {choice.get('finish_reason') or 'unknown'})"
                 )
 

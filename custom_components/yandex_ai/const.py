@@ -5,6 +5,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import logging
+from typing import Any
 
 from homeassistant.const import CONF_LLM_HASS_API
 from homeassistant.helpers import llm
@@ -14,6 +15,11 @@ LOGGER = logging.getLogger(__package__)
 
 SUBENTRY_TYPE_CONVERSATION = "conversation"
 SUBENTRY_TYPE_AI_TASK_DATA = "ai_task_data"
+
+CONF_AI_TASK_KIND = "ai_task_kind"
+AI_TASK_KIND_TEXT = "text"
+AI_TASK_KIND_IMAGE = "image"
+CONF_PENDING_AI_TASK_PREFERENCES = "pending_ai_task_preferences"
 
 CONF_FOLDER_ID = "folder_id"
 CONF_PROMPT = "prompt"
@@ -25,6 +31,17 @@ CONF_MODEL_VERSION = "model_version"
 CONF_ENABLE_SERVER_DATA_LOGGING = "enable_server_data_logging"
 CONF_MAX_TOOL_ITERATIONS = "max_tool_iterations"
 CONF_NO_HA_DEFAULT_PROMPT = "no_ha_default_prompt"
+CONF_REASONING_EFFORT = "reasoning_effort"
+CONF_TOP_P = "top_p"
+CONF_STOP = "stop"
+CONF_SEED = "seed"
+CONF_FREQUENCY_PENALTY = "frequency_penalty"
+CONF_PRESENCE_PENALTY = "presence_penalty"
+CONF_TOP_K = "top_k"
+CONF_IMAGE_SIZE = "image_size"
+CONF_IMAGE_N = "image_n"
+CONF_IMAGE_SEED = "image_seed"
+CONF_IMAGE_NEGATIVE_PROMPT = "image_negative_prompt"
 DEFAULT_CHAT_MODEL = "aliceai-llm"
 DEFAULT_AI_TASK_MODEL = "aliceai-image-art-3.0"
 DEFAULT_MODEL_VERSION = "latest"
@@ -33,6 +50,17 @@ DEFAULT_ENABLE_SERVER_DATA_LOGGING = True
 DEFAULT_MAX_TOOL_ITERATIONS = 10
 RECOMMENDED_MAX_TOKENS = 1024
 RECOMMENDED_TEMPERATURE = 0.6
+REASONING_EFFORT_DEFAULT = "default"
+REASONING_EFFORT_NONE = "none"
+REASONING_EFFORT_LOW = "low"
+REASONING_EFFORT_MEDIUM = "medium"
+REASONING_EFFORT_HIGH = "high"
+REASONING_EFFORT_VALUES = (
+    REASONING_EFFORT_NONE,
+    REASONING_EFFORT_LOW,
+    REASONING_EFFORT_MEDIUM,
+    REASONING_EFFORT_HIGH,
+)
 
 DEFAULT_BASE_URL = "https://llm.api.cloud.yandex.net/v1"
 DEFAULT_IMAGE_BASE_URL = "https://ai.api.cloud.yandex.net/v1"
@@ -46,11 +74,16 @@ RECOMMENDED_CONVERSATION_OPTIONS = {
     CONF_PROMPT: DEFAULT_INSTRUCTIONS_PROMPT_RU,
     CONF_LLM_HASS_API: [llm.LLM_API_ASSIST],
     CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
-    CONF_MAX_TOOL_ITERATIONS: DEFAULT_MAX_TOOL_ITERATIONS,
 }
 
 RECOMMENDED_AI_TASK_OPTIONS = {
     CONF_CHAT_MODEL: DEFAULT_AI_TASK_MODEL,
+}
+
+RECOMMENDED_TEXT_AI_TASK_OPTIONS = {
+    CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
+    CONF_RECOMMENDED: True,
+    CONF_MODEL_VERSION: DEFAULT_MODEL_VERSION,
 }
 
 # Fallback list of known chat models, used when GET /models is unavailable
@@ -69,6 +102,10 @@ MULTIMODAL_MODELS = (
     "qwen3.6-35b-a3b",
 )
 
+# Yandex AI Studio model families that accept reasoning effort
+REASONING_EFFORT_QWEN_PREFIXES = ("qwen3",)
+REASONING_EFFORT_DEEPSEEK_PREFIXES = ("deepseek-v4",)
+
 # Yandex AI Studio image generation (Images API), tried in order
 IMAGE_MODELS = (DEFAULT_AI_TASK_MODEL, "yandex-art")
 IMAGE_MODEL_LABELS = {
@@ -85,6 +122,49 @@ def _model_short_name(model_id: str | None) -> str | None:
         return model_id.split("/")[0]
     parts = model_id.split("/")
     return parts[3] if len(parts) == 5 else None
+
+
+def model_reasoning_effort_kind(model_id: str | None) -> str | None:
+    """Return the reasoning effort UI kind for the configured model."""
+    name = _model_short_name(model_id)
+    if not name:
+        return None
+    name = name.lower()
+    if name.startswith(REASONING_EFFORT_QWEN_PREFIXES):
+        return "qwen"
+    if name.startswith(REASONING_EFFORT_DEEPSEEK_PREFIXES):
+        return "deepseek"
+    return None
+
+
+def reasoning_effort_api_value(
+    model_id: str | None, value: Any | None
+) -> str | None:
+    """Normalize a stored reasoning effort value for the Yandex API."""
+    kind = model_reasoning_effort_kind(model_id)
+    if kind == "qwen":
+        if value in (False, REASONING_EFFORT_NONE):
+            return REASONING_EFFORT_NONE
+        return None
+    if kind == "deepseek":
+        if value in REASONING_EFFORT_VALUES:
+            return value
+        return None
+    return None
+
+
+def normalize_stop_text(value: Any | None) -> str | None:
+    """Normalize stop sequences to a multi-line string for storage."""
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        parts = [str(part).strip() for part in value]
+    elif isinstance(value, str):
+        parts = [part.strip() for part in value.splitlines()]
+    else:
+        parts = [str(value).strip()]
+    result = [part for part in parts if part]
+    return "\n".join(result) if result else None
 
 
 def _model_display_label(model_id: str) -> str:
@@ -109,6 +189,18 @@ def friendly_model_label(model_id: str | None) -> str:
 
 IMAGE_MODEL_VERSION = "latest"
 IMAGE_GENERATION_TIMEOUT = 120.0
+MIN_IMAGE_N = 1
+MAX_IMAGE_N = 10
+IMAGE_MODEL_OPTION_KEYS = (
+    CONF_IMAGE_SIZE,
+    CONF_IMAGE_N,
+    CONF_IMAGE_SEED,
+    CONF_IMAGE_NEGATIVE_PROMPT,
+)
+IMAGE_MODEL_OPTIONS = {
+    "aliceai-image-art-3.0": IMAGE_MODEL_OPTION_KEYS,
+    "yandex-art": IMAGE_MODEL_OPTION_KEYS,
+}
 
 # AI task capabilities of Yandex AI Studio models
 CAP_TEXT_TO_TEXT = "text-to-text"
@@ -139,6 +231,14 @@ def model_capabilities_label(model: str) -> str:
     if CAP_IMAGE_TO_TEXT in capabilities:
         return "image-text-to-text"
     return "text-generation"
+
+
+def model_image_options(model_id: str | None) -> tuple[str, ...]:
+    """Return the image generation options supported by the model."""
+    short = _model_short_name(model_id)
+    if not short:
+        return ()
+    return IMAGE_MODEL_OPTIONS.get(short, ())
 
 DOC_CHAT_MODELS_URL = "https://aistudio.yandex.ru/docs/ai-studio/concepts/generation/models"
 DOC_PRICING_URL = "https://aistudio.yandex.ru/docs/ai-studio/pricing#common-instance-sync"

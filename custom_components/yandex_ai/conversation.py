@@ -17,22 +17,24 @@ from homeassistant.exceptions import HomeAssistantError, TemplateError
 from homeassistant.helpers import intent, template
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from . import YandexGPTConfigEntry
-from .client import YandexGPTApiError, YandexGPTClient
-from .const import (CONF_MAX_TOKENS, CONF_MAX_TOOL_ITERATIONS,
-                    CONF_NO_HA_DEFAULT_PROMPT, CONF_PROMPT, CONF_TEMPERATURE,
-                    DEFAULT_INSTRUCTIONS_PROMPT_RU,
+from . import YandexAIConfigEntry
+from .client import YandexAIStudioError, YandexAIClient
+from .const import (CONF_FREQUENCY_PENALTY, CONF_MAX_TOKENS,
+                    CONF_MAX_TOOL_ITERATIONS, CONF_NO_HA_DEFAULT_PROMPT,
+                    CONF_PRESENCE_PENALTY, CONF_PROMPT, CONF_REASONING_EFFORT,
+                    CONF_SEED, CONF_STOP, CONF_TEMPERATURE, CONF_TOP_K,
+                    CONF_TOP_P, DEFAULT_INSTRUCTIONS_PROMPT_RU,
                     DEFAULT_MAX_TOOL_ITERATIONS,
                     DEFAULT_NO_HA_DEFAULT_PROMPT, DOMAIN, LOGGER,
-                    RECOMMENDED_MAX_TOKENS, RECOMMENDED_TEMPERATURE,
-                    SUBENTRY_TYPE_CONVERSATION)
-from .entity import YandexGPTEntity
+                    RECOMMENDED_TEMPERATURE,
+                    SUBENTRY_TYPE_CONVERSATION, reasoning_effort_api_value)
+from .entity import YandexAIEntity
 from .mappers import ContentConverter, StreamTransformer
 
 
 async def async_setup_entry(
     _hass: HomeAssistant,
-    config_entry: YandexGPTConfigEntry,
+    config_entry: YandexAIConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up conversation entities from subentries."""
@@ -40,13 +42,13 @@ async def async_setup_entry(
         if subentry.subentry_type != SUBENTRY_TYPE_CONVERSATION:
             continue
         async_add_entities(
-            [YandexGPTConversationEntity(config_entry, subentry)],
+            [YandexAIConversationEntity(config_entry, subentry)],
             config_subentry_id=subentry_id,
         )
 
 
-class YandexGPTConversationEntity(
-    YandexGPTEntity,
+class YandexAIConversationEntity(
+    YandexAIEntity,
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,  # type: ignore
 ):
@@ -55,7 +57,7 @@ class YandexGPTConversationEntity(
     _attr_name = None
     _attr_supports_streaming = True
 
-    def __init__(self, entry: YandexGPTConfigEntry, subentry: ConfigSubentry) -> None:
+    def __init__(self, entry: YandexAIConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the agent."""
         super().__init__(entry, subentry)
         if self.subentry.data.get(CONF_LLM_HASS_API):
@@ -79,7 +81,7 @@ class YandexGPTConversationEntity(
     ) -> conversation.ConversationResult:
         """Process a conversation with Yandex AI."""
         settings = self._settings()
-        client: YandexGPTClient = self.entry.runtime_data
+        client: YandexAIClient = self.entry.runtime_data
 
         system_prompt = settings.get(CONF_PROMPT, DEFAULT_INSTRUCTIONS_PROMPT_RU)
 
@@ -121,12 +123,23 @@ class YandexGPTConversationEntity(
             for _iteration in range(max_tool_iterations):
                 LOGGER.debug("Prompt: %s", messages)
 
+                model_id = self._model_id(settings)
+                reasoning_effort = reasoning_effort_api_value(
+                    model_id, settings.get(CONF_REASONING_EFFORT)
+                )
                 response_stream = client.stream_chat(
-                    self._model_id(settings),
+                    model_id,
                     messages,
                     temperature=settings.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
-                    max_tokens=settings.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+                    max_tokens=settings.get(CONF_MAX_TOKENS),
                     tools=tools,
+                    reasoning_effort=reasoning_effort,
+                    top_p=settings.get(CONF_TOP_P),
+                    stop=settings.get(CONF_STOP),
+                    seed=settings.get(CONF_SEED),
+                    frequency_penalty=settings.get(CONF_FREQUENCY_PENALTY),
+                    presence_penalty=settings.get(CONF_PRESENCE_PENALTY),
+                    top_k=settings.get(CONF_TOP_K),
                 )
 
                 stream_transformer = StreamTransformer(response_stream)
@@ -147,7 +160,7 @@ class YandexGPTConversationEntity(
 
                 if not chat_log.unresponded_tool_results:
                     break
-        except YandexGPTApiError as err:
+        except YandexAIStudioError as err:
             LOGGER.exception("Error talking to Yandex AI Studio: %s", err)
             raise HomeAssistantError(
                 translation_domain=DOMAIN,

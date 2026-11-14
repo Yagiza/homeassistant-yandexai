@@ -4,14 +4,15 @@
   "after_dependencies": ["assist_pipeline", "intent"],
   "codeowners": ["@Yagiza"],
   "config_flow": true,
-  "dependencies": ["conversation"],
+  "dependencies": ["ai_task", "conversation"],
   "documentation": "https://github.com/Yagiza/homeassistant-yandexai/wiki",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Yagiza/homeassistant-yandexai/issues",
   "loggers": ["yandex_ai"],
   "requirements": [
-    "httpx-sse>=0.4.1"
+    "httpx-sse>=0.4.1",
+    "probatio>=0.13.0"
   ],
-  "version": "3.0.3"
+  "version": "3.0.4"
 }

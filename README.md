@@ -19,6 +19,7 @@ See [description in English](#yandex-ai-integration-for-home-assistant) below �
 - Yandex AI можно использовать в автоматизациях, например, для создания чат-бота в Telegram.
 - Поддержка моделей Yandex AI Studio через OpenAI-совместимый API: Alice AI, YandexGPT и сторонние модели (Qwen и DeepSeek); также можно ввести любой идентификатор модели.
 - Можно создать несколько ассистентов с разными моделями и настройками, а также использовать Yandex AI в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) (извлечение данных, анализ текста и т.д.).
+- При первой настройке автоматически создаются диалоговая система, ИИ-задача для генерации изображений и ИИ-задача для текста; при этом можно сразу назначить системные ИИ-задачи.
 - Генерация изображений в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) с помощью Alice AI Image Art 3.0 и Yandex Art.
 - **Анализ изображений** в [ИИ-задачах](https://www.home-assistant.io/integrations/ai_task/) с помощью мультимодальных моделей DeepSeek и Qwen.
 
@@ -41,17 +42,17 @@ TLDR: Добавьте интеграцию, используя голубые �
 
 ## Генерация изображений
 
-Сущность AI Task умеет генерировать изображения моделями Alice AI Image Art 3.0 и Yandex Art. По умолчанию создаётся ИИ-задача `Alice AI Image Art 3.0 Task`:
+Сущность AI Task умеет генерировать изображения моделями Alice AI Image Art 3.0 и Yandex Art. По умолчанию создаётся ИИ-задача `Alice AI Image Art 3.0 Image Task`:
 
 ```yaml
 service: ai_task.generate_image
 data:
   task_name: "Котик"
   instructions: "Милый кот сидит на подоконнике, акварель"
-  entity_id: ai_task.alice_ai_image_art_3_0_task  # по умолчанию
+  entity_id: ai_task.alice_ai_image_art_3_0_image_task  # по умолчанию
 ```
 
-Изображение сохраняется в [медиа-источник ИИ-задач](https://www.home-assistant.io/integrations/ai_task/) (`media-source://ai_task/image/...`), сервис возвращает `media_source_id` и ссылку `url` (действует 1 час). Формат — JPEG, подсказка — только текст. Сервисному аккаунту нужна роль `ai.imageGeneration.user`.
+Изображение сохраняется в [медиа-источник ИИ-задач](https://www.home-assistant.io/integrations/ai_task/) (`media-source://ai_task/image/...`), сервис возвращает `media_source_id` и ссылку `url` (действует 1 час). Формат изображения определяется автоматически (PNG, JPEG, WEBP или GIF), подсказка — только текст. Сервисному аккаунту нужна роль `ai.imageGeneration.user`.
 
 ## Альтернативы
 
@@ -92,6 +93,7 @@ This integration is a fork of the [YandexGPT integration](https://github.com/bla
 - Useful for creating Telegram chatbots and other automations.
 - Supports Yandex AI Studio models via the OpenAI-compatible API: Alice AI, YandexGPT, and third-party models (Qwen and DeepSeek); any model id can be entered.
 - You can create multiple agents with different models and settings, and use Yandex AI in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) (data extraction, text analysis, etc.).
+- Initial setup automatically creates a conversation agent, an image-generation AI task and a text AI task, and lets you assign the system AI tasks immediately.
 - Image generation in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) with Alice AI Image Art 3.0 and Yandex Art.
 - **Image analysis** in [AI tasks](https://www.home-assistant.io/integrations/ai_task/) with multimodal DeepSeek and Qwen models.
 
@@ -103,17 +105,17 @@ Use blue buttons above to install and configure the integration. Please check ou
 
 ## Image generation
 
-The AI Task entity can generate images with Alice AI Image Art 3.0 and Yandex Art. The default AI task is named `Alice AI Image Art 3.0 Task`:
+The AI Task entity can generate images with Alice AI Image Art 3.0 and Yandex Art. The default AI task is named `Alice AI Image Art 3.0 Image Task`:
 
 ```yaml
 service: ai_task.generate_image
 data:
   task_name: "Kitten"
   instructions: "A cute cat sitting on a windowsill, watercolor"
-  entity_id: ai_task.alice_ai_image_art_3_0_task  # default
+  entity_id: ai_task.alice_ai_image_art_3_0_image_task  # default
 ```
 
-The image is stored in the [AI task media source](https://www.home-assistant.io/integrations/ai_task/) (`media-source://ai_task/image/...`); the service returns `media_source_id` and an `url` (valid for 1 hour). Output format is JPEG, the prompt is text only. The service account needs the `ai.imageGeneration.user` role.
+The image is stored in the [AI task media source](https://www.home-assistant.io/integrations/ai_task/) (`media-source://ai_task/image/...`); the service returns `media_source_id` and an `url` (valid for 1 hour). The image format is detected automatically (PNG, JPEG, WEBP or GIF), and the prompt is text only. The service account needs the `ai.imageGeneration.user` role.
 
 ## Thanks
 
