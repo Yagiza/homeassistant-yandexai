@@ -19,32 +19,131 @@
       "conversation": {
         "title": "Conversation agent settings",
         "data": {
+          "chat_model": "Model",
           "prompt": "Instructions",
           "llm_hass_api": "Control Home Assistant",
-          "chat_model": "Model",
-          "recommended": "Recommended model settings",
-          "model_version": "Version",
-          "temperature": "Temperature",
-          "max_tokens": "Maximum tokens to return in response",
-          "max_tool_iterations": "Maximum tool iterations",
-          "no_ha_default_prompt": "Ignore default Home Assistant prompt"
+          "recommended": "Use default settings"
         },
         "data_description": {
           "chat_model": "Alice AI, YandexGPT and third-party models (Qwen and DeepSeek) are supported. Pick a model from the list or type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
           "llm_hass_api": "Allows the AI to control devices and call MCPs. Uses extra tokens.",
           "prompt": "Instruct how the LLM should respond. [This can be a template]({prompt_templates_url}).",
+          "recommended": "When enabled, default settings are used. Disable to open the next step with advanced model settings."
+        }
+      },
+      "conversation_advanced": {
+        "title": "Advanced conversation agent settings",
+        "data": {
+          "model_version": "Version",
+          "temperature": "Temperature",
+          "max_tokens": "Maximum tokens to return in response",
+          "max_tool_iterations": "Maximum tool iterations",
+          "no_ha_default_prompt": "Ignore default Home Assistant prompt",
+          "reasoning_effort": "Reasoning",
+          "reasoning_effort_qwen": "Reasoning",
+          "reasoning_effort_deepseek": "Reasoning",
+          "top_p": "Top P",
+          "stop": "Stop sequences",
+          "seed": "Seed",
+          "frequency_penalty": "Frequency penalty",
+          "presence_penalty": "Presence penalty",
+          "top_k": "Top K"
+        },
+        "data_description": {
           "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
-          "no_ha_default_prompt": "Disables automatic appending of time and devices list"
+          "no_ha_default_prompt": "Disables automatic appending of time and devices list",
+          "reasoning_effort": "For Qwen models the checkbox is on by default; turning it off sends `reasoning_effort: none`. For DeepSeek models, an empty field means the API default and omits `reasoning_effort`, while `none`, `low`, `medium`, and `high` are sent explicitly",
+          "reasoning_effort_qwen": "The checkbox is on by default; turning it off sends `reasoning_effort: none`",
+          "reasoning_effort_deepseek": "an empty field means the API default and omits `reasoning_effort`, while `none`, `low`, `medium`, and `high` are sent explicitly",
+          "top_p": "Nucleus sampling threshold: lower values make output more focused, higher values more diverse",
+          "stop": "Generation stops when the model produces one of these sequences. One sequence per line",
+          "seed": "Seed for more reproducible output. Leave empty to let the model choose",
+          "frequency_penalty": "Reduces the chance of repeating tokens in proportion to their existing frequency",
+          "presence_penalty": "Reduces the chance of mentioning topics, words, or entities that already appeared in the response",
+          "top_k": "Limits the next-token choice to the K most likely options"
+        }
+      },
+      "ai_task_image_model": {
+        "title": "AI task model: image generation",
+        "data": {
+          "chat_model": "Model",
+          "recommended": "Use default settings"
+        },
+        "data_description": {
+          "chat_model": "Only models with image generation capability (text-to-image) are suggested. You can type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
+          "recommended": "When enabled, default settings are used. Disable to open the next step with image generation settings."
+        }
+      },
+      "ai_task_image_settings": {
+        "title": "Image generation settings",
+        "data": {
+          "model_version": "Version",
+          "image_size": "Image size",
+          "image_n": "Number of images",
+          "image_seed": "Seed",
+          "image_negative_prompt": "Negative prompt"
+        },
+        "data_description": {
+          "model_version": "Model version in the `art://.../version` URI. Usually `latest` is enough",
+          "image_size": "Use the width×height format. Leave empty to let the API choose the default size",
+          "image_n": "Number of images requested from the API. Leave empty to let the API choose the default number. The AI task result stores the first image",
+          "image_seed": "Seed for more reproducible images. Leave empty to let the model choose",
+          "image_negative_prompt": "Describe what should not appear in the image"
         }
       },
       "ai_task": {
-        "title": "AI task settings",
+        "title": "AI task model: text generation",
         "data": {
           "chat_model": "Model",
-          "max_tokens": "Maximum tokens to return in response"
+          "recommended": "Use default settings"
         },
         "data_description": {
-          "chat_model": "One model is used for all tasks of this AI task. The capability in parentheses defines what the task can do: text-generation — text generation, image-text-to-text — understands images and generates text, text-to-image — image generation. Alice AI, YandexGPT and third-party models (Qwen and DeepSeek) are supported; you can type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation."
+          "chat_model": "Only models with text generation capability (text-generation, image-text-to-text) are suggested. You can type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
+          "recommended": "When enabled, default settings are used. Disable to open the next step with advanced model settings."
+        }
+      },
+      "ai_task_advanced": {
+        "title": "Advanced text AI task settings",
+        "data": {
+          "model_version": "Version",
+          "temperature": "Temperature",
+          "max_tokens": "Maximum tokens to return in response",
+          "reasoning_effort": "Reasoning",
+          "reasoning_effort_qwen": "Reasoning",
+          "reasoning_effort_deepseek": "Reasoning",
+          "top_p": "Top P",
+          "stop": "Stop sequences",
+          "seed": "Seed",
+          "frequency_penalty": "Frequency penalty",
+          "presence_penalty": "Presence penalty",
+          "top_k": "Top K"
+        },
+        "data_description": {
+          "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
+          "temperature": "Controls response diversity: lower values make output more predictable, higher values more diverse",
+          "reasoning_effort": "For Qwen models the checkbox is on by default; turning it off sends `reasoning_effort: none`. For DeepSeek models, an empty field means the API default and omits `reasoning_effort`, while `none`, `low`, `medium`, and `high` are sent explicitly",
+          "reasoning_effort_qwen": "The checkbox is on by default; turning it off sends `reasoning_effort: none`",
+          "reasoning_effort_deepseek": "an empty field means the API default and omits `reasoning_effort`, while `none`, `low`, `medium`, and `high` are sent explicitly",
+          "top_p": "Nucleus sampling threshold: lower values make output more focused, higher values more diverse",
+          "stop": "Generation stops when the model produces one of these sequences. One sequence per line",
+          "seed": "Seed for more reproducible output. Leave empty to let the model choose",
+          "frequency_penalty": "Reduces the chance of repeating tokens in proportion to their existing frequency",
+          "presence_penalty": "Reduces the chance of mentioning topics, words, or entities that already appeared in the response",
+          "top_k": "Limits the next-token choice to the K most likely options"
+        }
+      },
+      "ai_task_preferences": {
+        "title": "System AI task setup",
+        "description": "Home Assistant uses separate tasks for AI features. Select which of the newly created tasks should be installed.",
+        "data": {
+          "gen_data_entity_id": "Data generation",
+          "gen_image_entity_id": "Image generation",
+          "evaluate_entity_id": "Solutions"
+        },
+        "data_description": {
+          "gen_data_entity_id": "Use the created text AI task for data generation",
+          "gen_image_entity_id": "Use the created AI task for image generation",
+          "evaluate_entity_id": "Use the created text AI task for solutions"
         }
       },
       "reconfigure": {
@@ -79,22 +178,48 @@
         "init": {
           "title": "Conversation agent settings",
           "data": {
+            "chat_model": "Model",
             "prompt": "Instructions",
             "llm_hass_api": "Control Home Assistant",
-            "chat_model": "Model",
-            "recommended": "Recommended model settings",
-            "model_version": "Version",
-            "temperature": "Temperature",
-            "max_tokens": "Maximum tokens to return in response",
-            "max_tool_iterations": "Maximum tool iterations",
-            "no_ha_default_prompt": "Ignore default Home Assistant prompt"
+            "recommended": "Use default settings"
           },
           "data_description": {
             "chat_model": "Alice AI, YandexGPT and third-party models (Qwen and DeepSeek) are supported. Pick a model from the list or type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
             "llm_hass_api": "Allows the AI to control devices and call MCPs. Uses extra tokens.",
             "prompt": "Instruct how the LLM should respond. [This can be a template]({prompt_templates_url}).",
+            "recommended": "When enabled, default settings are used. Disable to open the next step with advanced model settings."
+          }
+        },
+        "advanced": {
+          "title": "Advanced conversation agent settings",
+          "data": {
+            "model_version": "Version",
+            "temperature": "Temperature",
+            "max_tokens": "Maximum tokens to return in response",
+            "max_tool_iterations": "Maximum tool iterations",
+            "no_ha_default_prompt": "Ignore default Home Assistant prompt",
+            "reasoning_effort": "Reasoning",
+            "reasoning_effort_qwen": "Reasoning",
+            "reasoning_effort_deepseek": "Reasoning",
+            "top_p": "Top P",
+            "stop": "Stop sequences",
+            "seed": "Seed",
+            "frequency_penalty": "Frequency penalty",
+            "presence_penalty": "Presence penalty",
+            "top_k": "Top K"
+          },
+          "data_description": {
             "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
-            "no_ha_default_prompt": "Disables automatic appending of time and devices list"
+            "no_ha_default_prompt": "Disables automatic appending of time and devices list",
+            "reasoning_effort": "For Qwen models the checkbox is on by default; turning it off sends `reasoning_effort: none`. For DeepSeek models, an empty field means the API default and omits `reasoning_effort`, while `none`, `low`, `medium`, and `high` are sent explicitly",
+            "reasoning_effort_qwen": "The checkbox is on by default; turning it off sends `reasoning_effort: none`",
+            "reasoning_effort_deepseek": "an empty field means the API default and omits `reasoning_effort`, while `none`, `low`, `medium`, and `high` are sent explicitly",
+            "top_p": "Nucleus sampling threshold: lower values make output more focused, higher values more diverse",
+            "stop": "Generation stops when the model produces one of these sequences. One sequence per line",
+            "seed": "Seed for more reproducible output. Leave empty to let the model choose",
+            "frequency_penalty": "Reduces the chance of repeating tokens in proportion to their existing frequency",
+            "presence_penalty": "Reduces the chance of mentioning topics, words, or entities that already appeared in the response",
+            "top_k": "Limits the next-token choice to the K most likely options"
           }
         }
       }
@@ -110,13 +235,62 @@
         "reconfigure_successful": "Reconfiguration successful"
       },
       "step": {
-        "init": {
+        "image_settings": {
+          "title": "Image generation settings",
           "data": {
-            "chat_model": "Model",
-            "max_tokens": "Maximum tokens to return in response"
+            "model_version": "Version",
+            "image_size": "Image size",
+            "image_n": "Number of images",
+            "image_seed": "Seed",
+            "image_negative_prompt": "Negative prompt"
           },
           "data_description": {
-            "chat_model": "One model is used for all tasks of this AI task. The capability in parentheses defines what the task can do: text-generation — text generation, image-text-to-text — understands images and generates text, text-to-image — image generation. Alice AI, YandexGPT and third-party models (Qwen and DeepSeek) are supported; you can type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation."
+            "model_version": "Model version in the `art://.../version` URI. Usually `latest` is enough",
+            "image_size": "Use the width×height format. Leave empty to let the API choose the default size",
+            "image_n": "Number of images requested from the API. Leave empty to let the API choose the default number. The AI task result stores the first image",
+            "image_seed": "Seed for more reproducible images. Leave empty to let the model choose",
+            "image_negative_prompt": "Describe what should not appear in the image"
+          }
+        },
+        "init": {
+          "title": "AI task settings",
+          "data": {
+            "chat_model": "Model",
+            "recommended": "Use default settings"
+          },
+          "data_description": {
+            "chat_model": "One model is used for all tasks of this AI task. The capability in parentheses defines what the task can do: text-generation — text generation, image-text-to-text — understands images and generates text, text-to-image — image generation. Alice AI, YandexGPT and third-party models (Qwen and DeepSeek) are supported; you can type any model id. [Model descriptions]({chat_model_doc_url}) and [pricing]({pricing_doc_url}) can be found in the official documentation.",
+            "recommended": "When enabled, default settings are used. Disable to open the next step with advanced model settings."
+          }
+        },
+        "advanced": {
+          "title": "Advanced AI task settings",
+          "data": {
+            "model_version": "Version",
+            "temperature": "Temperature",
+            "max_tokens": "Maximum tokens to return in response",
+            "reasoning_effort": "Reasoning",
+            "reasoning_effort_qwen": "Reasoning",
+            "reasoning_effort_deepseek": "Reasoning",
+            "top_p": "Top P",
+            "stop": "Stop sequences",
+            "seed": "Seed",
+            "frequency_penalty": "Frequency penalty",
+            "presence_penalty": "Presence penalty",
+            "top_k": "Top K"
+          },
+          "data_description": {
+            "model_version": "Only applies to models selected by short name (not by a full gpt:// id)",
+            "temperature": "Controls response diversity: lower values make output more predictable, higher values more diverse",
+            "reasoning_effort": "For Qwen models the checkbox is on by default; turning it off sends `reasoning_effort: none`. For DeepSeek models, an empty field means the API default and omits `reasoning_effort`, while `none`, `low`, `medium`, and `high` are sent explicitly",
+            "reasoning_effort_qwen": "The checkbox is on by default; turning it off sends `reasoning_effort: none`",
+            "reasoning_effort_deepseek": "an empty field means the API default and omits `reasoning_effort`, while `none`, `low`, `medium`, and `high` are sent explicitly",
+            "top_p": "Nucleus sampling threshold: lower values make output more focused, higher values more diverse",
+            "stop": "Generation stops when the model produces one of these sequences. One sequence per line",
+            "seed": "Seed for more reproducible output. Leave empty to let the model choose",
+            "frequency_penalty": "Reduces the chance of repeating tokens in proportion to their existing frequency",
+            "presence_penalty": "Reduces the chance of mentioning topics, words, or entities that already appeared in the response",
+            "top_k": "Limits the next-token choice to the K most likely options"
           }
         }
       }
@@ -135,6 +309,28 @@
       "options": {
         "none": "No access to entities"
       }
+    },
+    "reasoning_effort": {
+      "options": {
+        "none": "None",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      }
+    }
+  },
+  "issues": {
+    "ai_task_data_preference_not_set": {
+      "title": "Data generation task is not selected or unavailable",
+      "description": "In Settings → System → Artificial Intelligence, no working data generation task is selected, or the selected task no longer exists. The created task {entity_id} is suggested."
+    },
+    "ai_task_image_preference_not_set": {
+      "title": "Image generation task is not selected or unavailable",
+      "description": "In Settings → System → Artificial Intelligence, no working image generation task is selected, or the selected task no longer exists. The created task {entity_id} is suggested."
+    },
+    "ai_task_solutions_preference_not_set": {
+      "title": "Solutions task is not selected or unavailable",
+      "description": "In Settings → System → Artificial Intelligence, no working solutions task is selected, or the selected task no longer exists. The created task {entity_id} is suggested."
     }
   }
 }

@@ -21,15 +21,20 @@ from homeassistant.helpers.entity_platform import (
 )
 from homeassistant.util.json import json_loads
 
-from . import YandexGPTConfigEntry
-from .client import GeneratedImage, YandexGPTApiError, YandexGPTClient
+from . import YandexAIConfigEntry
+from .client import GeneratedImage, YandexAIStudioError, YandexAIClient
 from .const import (CAP_IMAGE_TO_TEXT, CAP_TEXT_TO_IMAGE, CAP_TEXT_TO_TEXT,
-                    CONF_CHAT_MODEL, CONF_FOLDER_ID, CONF_MAX_TOKENS,
-                    CONF_TEMPERATURE, DEFAULT_AI_TASK_MODEL, DOMAIN,
-                    IMAGE_GENERATION_TIMEOUT, IMAGE_MODELS, IMAGE_MODEL_VERSION,
-                    LOGGER, RECOMMENDED_MAX_TOKENS, RECOMMENDED_TEMPERATURE,
-                    SUBENTRY_TYPE_AI_TASK_DATA, model_capabilities)
-from .entity import YandexGPTEntity
+                    CONF_CHAT_MODEL, CONF_FREQUENCY_PENALTY, CONF_FOLDER_ID,
+                    CONF_IMAGE_N, CONF_IMAGE_NEGATIVE_PROMPT, CONF_IMAGE_SEED,
+                    CONF_IMAGE_SIZE, CONF_MAX_TOKENS, CONF_MODEL_VERSION,
+                    CONF_PRESENCE_PENALTY, CONF_REASONING_EFFORT, CONF_SEED,
+                    CONF_STOP, CONF_TEMPERATURE, CONF_TOP_K, CONF_TOP_P,
+                    DEFAULT_AI_TASK_MODEL,
+                    DOMAIN, IMAGE_GENERATION_TIMEOUT, IMAGE_MODELS,
+                    IMAGE_MODEL_VERSION, LOGGER,
+                    RECOMMENDED_TEMPERATURE, SUBENTRY_TYPE_AI_TASK_DATA,
+                    model_capabilities, reasoning_effort_api_value)
+from .entity import YandexAIEntity
 
 if TYPE_CHECKING:
     from homeassistant.components.ai_task.evaluation import (
@@ -115,7 +120,7 @@ def _parse_evaluate_payload(text: str) -> dict[str, Any]:
 
 async def async_setup_entry(
     _hass: HomeAssistant,
-    config_entry: YandexGPTConfigEntry,
+    config_entry: YandexAIConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up AI Task entities."""
@@ -124,17 +129,17 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [YandexGPTAITaskEntity(config_entry, subentry)],
+            [YandexAITaskEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
+class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIEntity):
     """Yandex AI Task entity."""
 
     _attr_name = None
 
-    def __init__(self, entry: YandexGPTConfigEntry, subentry: ConfigSubentry) -> None:
+    def __init__(self, entry: YandexAIConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the entity."""
         super().__init__(entry, subentry)
         options = {**dict(entry.data), **dict(subentry.data)}
@@ -177,7 +182,7 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
         try:
             data = json_loads(text)
         except JSONDecodeError as err:
-            raise HomeAssistantError("Error with YandexGPT structured response") from err
+            raise HomeAssistantError("Error with Yandex AI Studio structured response") from err
 
         return ai_task.GenDataTaskResult(
             conversation_id=chat_log.conversation_id,
@@ -194,25 +199,43 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
             **dict(self.entry.data),
             **dict(self.subentry.data),
         }
-        client: YandexGPTClient = self.entry.runtime_data
+        client: YandexAIClient = self.entry.runtime_data
         image: GeneratedImage | None = None
         selected = options.get(CONF_CHAT_MODEL) or IMAGE_MODELS[0]
         image_models = [selected] + [m for m in IMAGE_MODELS if m != selected]
+        selected_version = str(
+            options.get(CONF_MODEL_VERSION) or IMAGE_MODEL_VERSION
+        ).strip()
+        if not selected_version:
+            selected_version = IMAGE_MODEL_VERSION
         used_model = selected
-        last_err: YandexGPTApiError | None = None
-        for image_model in image_models:
+        used_version = selected_version
+        last_err: YandexAIStudioError | None = None
+        for index, image_model in enumerate(image_models):
+            model_version = selected_version if index == 0 else IMAGE_MODEL_VERSION
             model_uri = (
-                f"art://{options[CONF_FOLDER_ID]}/{image_model}/{IMAGE_MODEL_VERSION}"
+                f"art://{options[CONF_FOLDER_ID]}/{image_model}/{model_version}"
             )
             try:
                 image = await client.generate_image(
                     model_uri,
                     task.instructions,
+                    size=(
+                        str(options.get(CONF_IMAGE_SIZE) or "").strip() or None
+                    ),
+                    n=(
+                        int(options[CONF_IMAGE_N])
+                        if options.get(CONF_IMAGE_N) not in (None, "")
+                        else None
+                    ),
+                    seed=options.get(CONF_IMAGE_SEED),
+                    negative_prompt=options.get(CONF_IMAGE_NEGATIVE_PROMPT),
                     timeout=IMAGE_GENERATION_TIMEOUT,
                 )
                 used_model = image_model
+                used_version = model_version
                 break
-            except YandexGPTApiError as err:
+            except YandexAIStudioError as err:
                 if err.status_code not in (400, 403, 404):
                     LOGGER.exception(
                         "Error generating image with %s: %s", image_model, err
@@ -250,7 +273,7 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
             image_data=image.image_bytes,
             conversation_id=chat_log.conversation_id,
             mime_type=image.mime_type,
-            model=f"{used_model}/{IMAGE_MODEL_VERSION}",
+            model=f"{used_model}/{used_version}",
         )
 
     async def _async_evaluate(
@@ -269,7 +292,7 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
             **dict(self.entry.data),
             **dict(self.subentry.data),
         }
-        client: YandexGPTClient = self.entry.runtime_data
+        client: YandexAIClient = self.entry.runtime_data
 
         if task.attachments and not self._model_supports_attachments(options):
             raise HomeAssistantError(
@@ -291,7 +314,7 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
             text = await self._async_evaluate_completion(
                 client, options, messages, {"type": "json_object"}
             )
-        except YandexGPTApiError as err:
+        except YandexAIStudioError as err:
             if err.status_code != 400:
                 LOGGER.exception("Error talking to Yandex AI Studio: %s", err)
                 raise HomeAssistantError(
@@ -308,7 +331,7 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
                 text = await self._async_evaluate_completion(
                     client, options, messages, None
                 )
-            except YandexGPTApiError as err:
+            except YandexAIStudioError as err:
                 LOGGER.exception(
                     "Error talking to Yandex AI Studio: %s", err
                 )
@@ -386,19 +409,30 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
 
     async def _async_evaluate_completion(
         self,
-        client: YandexGPTClient,
+        client: YandexAIClient,
         options: dict[str, Any],
         messages: list[dict[str, Any]],
         response_format: dict[str, Any] | None,
     ) -> str:
         """Run a non-streaming evaluation completion and return its text."""
+        model_id = self._model_id(options)
+        reasoning_effort = reasoning_effort_api_value(
+            model_id, options.get(CONF_REASONING_EFFORT)
+        )
         try:
             choice = await client.complete_chat(
-                self._model_id(options),
+                model_id,
                 messages,
                 temperature=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
-                max_tokens=options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+                max_tokens=options.get(CONF_MAX_TOKENS),
                 response_format=response_format,
+                reasoning_effort=reasoning_effort,
+                top_p=options.get(CONF_TOP_P),
+                stop=options.get(CONF_STOP),
+                seed=options.get(CONF_SEED),
+                frequency_penalty=options.get(CONF_FREQUENCY_PENALTY),
+                presence_penalty=options.get(CONF_PRESENCE_PENALTY),
+                top_k=options.get(CONF_TOP_K),
             )
         except httpx.HTTPError as err:
             LOGGER.exception("Error talking to Yandex AI Studio: %s", err)
@@ -416,7 +450,7 @@ class YandexGPTAITaskEntity(ai_task.AITaskEntity, YandexGPTEntity):
             )
         if not message.get("content"):
             raise HomeAssistantError(
-                "YandexGPT returned an empty response "
+                "Yandex AI Studio returned an empty response "
                 f"(finish_reason: {choice.get('finish_reason') or 'unknown'})"
             )
         return message["content"]
