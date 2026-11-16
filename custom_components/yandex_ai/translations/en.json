@@ -322,15 +322,93 @@
   "issues": {
     "ai_task_data_preference_not_set": {
       "title": "Data generation task is not selected or unavailable",
-      "description": "In Settings → System → Artificial Intelligence, no working data generation task is selected, or the selected task no longer exists. The created task {entity_id} is suggested."
+      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), no working data generation task is selected, or the selected task no longer exists. The created task {entity_name} is suggested.",
+      "fix_flow": {
+        "step": {
+          "menu": {
+            "title": "Fix task selection",
+            "description": "The task {entity_name} can be selected as the working task. Alternatively, open [Settings → System → Artificial Intelligence]({settings_url}) and choose a task manually.",
+            "menu_options": {
+              "install": "Install suggested task",
+              "ignore": "Ignore"
+            },
+            "menu_option_descriptions": {
+              "install": "The preference will be applied automatically.",
+              "ignore": "The issue will be hidden, but the problem remains."
+            }
+          }
+        },
+        "abort": {
+          "missing_data": "The fix could not be applied because the task data is missing or out of date.",
+          "entity_unavailable": "The fix could not be applied because the suggested task is unavailable or does not support the required feature.",
+          "already_fixed": "The task is already selected, so no further action is required.",
+          "apply_failed": "The selected preference could not be applied. Check the HA logs for details.",
+          "ignored": "The issue will be ignored."
+        },
+        "create_entry": {
+          "default": "The working task has been selected."
+        }
+      }
     },
     "ai_task_image_preference_not_set": {
       "title": "Image generation task is not selected or unavailable",
-      "description": "In Settings → System → Artificial Intelligence, no working image generation task is selected, or the selected task no longer exists. The created task {entity_id} is suggested."
+      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), no working image generation task is selected, or the selected task no longer exists. The created task {entity_name} is suggested.",
+      "fix_flow": {
+        "step": {
+          "menu": {
+            "title": "Fix task selection",
+            "description": "The task {entity_name} can be selected as the working task. Alternatively, open [Settings → System → Artificial Intelligence]({settings_url}) and choose a task manually.",
+            "menu_options": {
+              "install": "Install suggested task",
+              "ignore": "Ignore"
+            },
+            "menu_option_descriptions": {
+              "install": "The preference will be applied automatically.",
+              "ignore": "The issue will be hidden, but the problem remains."
+            }
+          }
+        },
+        "abort": {
+          "missing_data": "The fix could not be applied because the task data is missing or out of date.",
+          "entity_unavailable": "The fix could not be applied because the suggested task is unavailable or does not support the required feature.",
+          "already_fixed": "The task is already selected, so no further action is required.",
+          "apply_failed": "The selected preference could not be applied. Check the HA logs for details.",
+          "ignored": "The issue will be ignored."
+        },
+        "create_entry": {
+          "default": "The working task has been selected."
+        }
+      }
     },
     "ai_task_solutions_preference_not_set": {
       "title": "Solutions task is not selected or unavailable",
-      "description": "In Settings → System → Artificial Intelligence, no working solutions task is selected, or the selected task no longer exists. The created task {entity_id} is suggested."
+      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), no working solutions task is selected, or the selected task no longer exists. The created task {entity_name} is suggested.",
+      "fix_flow": {
+        "step": {
+          "menu": {
+            "title": "Fix task selection",
+            "description": "The task {entity_name} can be selected as the working task. Alternatively, open [Settings → System → Artificial Intelligence]({settings_url}) and choose a task manually.",
+            "menu_options": {
+              "install": "Install suggested task",
+              "ignore": "Ignore"
+            },
+            "menu_option_descriptions": {
+              "install": "The preference will be applied automatically.",
+              "ignore": "The issue will be hidden, but the problem remains."
+            }
+          }
+        },
+        "abort": {
+          "missing_data": "The fix could not be applied because the task data is missing or out of date.",
+          "entity_unavailable": "The fix could not be applied because the suggested task is unavailable or does not support the required feature.",
+          "already_fixed": "The task is already selected, so no further action is required.",
+          "apply_failed": "The selected preference could not be applied. Check the HA logs for details.",
+          "ignored": "The issue will be ignored."
+        },
+        "create_entry": {
+          "default": "The working task has been selected."
+        }
+      }
     }
   }
 }

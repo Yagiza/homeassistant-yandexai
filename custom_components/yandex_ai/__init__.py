@@ -197,6 +197,80 @@ def _find_ai_task_entity_for_preference(
     return _matching_entity_id() or (fallback[0] if fallback else None)
 
 
+def _ai_task_settings_url(hass: HomeAssistant) -> str:
+    """Return the absolute URL of the AI task settings page, if known."""
+    base = hass.config.internal_url or hass.config.external_url
+    if not base:
+        return ""
+    return f"{base.rstrip('/')}/config/ai"
+
+
+def _ai_task_entity_display_name(
+    subentry: ConfigSubentry, entity_id: str, state
+) -> str:
+    """Return a human readable name for an AI task entity."""
+    friendly_name = state.attributes.get("friendly_name")
+    if (
+        isinstance(friendly_name, str)
+        and friendly_name
+        and friendly_name != entity_id
+    ):
+        return friendly_name
+    return subentry.title or entity_id
+
+
+async def _async_apply_ai_task_preferences(
+    hass: HomeAssistant, desired: dict[str, str]
+) -> bool:
+    """Apply supported AI task preferences and persist the result."""
+    preferences = hass.data.get(DATA_PREFERENCES)
+    if preferences is None or not desired:
+        return False
+
+    supported_keys = set(getattr(preferences, "KEYS", ()))
+    set_preferences = getattr(preferences, "async_set_preferences", None)
+    if callable(set_preferences):
+        try:
+            signature = inspect.signature(set_preferences)
+            supported_keys.update(
+                parameter for parameter in signature.parameters
+            )
+        except (TypeError, ValueError):
+            pass
+
+    applied: list[str] = []
+    if callable(set_preferences):
+        kwargs = {
+            preference_key: entity_id
+            for preference_key, entity_id in desired.items()
+            if preference_key in supported_keys
+        }
+        if kwargs:
+            set_preferences(**kwargs)
+            applied.extend(kwargs.values())
+    else:
+        for preference_key, entity_id in desired.items():
+            if preference_key in supported_keys:
+                setattr(preferences, preference_key, entity_id)
+                applied.append(entity_id)
+
+    if not applied:
+        return False
+
+    store = getattr(preferences, "_store", None)
+    as_dict = getattr(preferences, "as_dict", None)
+    if store is not None and callable(as_dict) and hasattr(store, "async_save"):
+        try:
+            await store.async_save(as_dict())
+        except Exception:
+            LOGGER.warning(
+                "Could not persist AI task preferences", exc_info=True
+            )
+            return False
+
+    return True
+
+
 async def _async_install_ai_task_preferences(
     hass: HomeAssistant,
     entry: YandexAIConfigEntry,
@@ -218,41 +292,8 @@ async def _async_install_ai_task_preferences(
         if entity_id:
             desired[preference_key] = entity_id
 
-    if not desired:
-        return
-
-    supported_keys = set(getattr(preferences, "KEYS", ()))
-    set_preferences = getattr(preferences, "async_set_preferences", None)
-    if callable(set_preferences):
-        try:
-            signature = inspect.signature(set_preferences)
-            supported_keys.update(
-                parameter for parameter in signature.parameters
-            )
-        except (TypeError, ValueError):
-            pass
-
-        kwargs = {
-            preference_key: entity_id
-            for preference_key, entity_id in desired.items()
-            if preference_key in supported_keys
-        }
-        if kwargs:
-            set_preferences(**kwargs)
-    else:
-        for preference_key, entity_id in desired.items():
-            if preference_key in supported_keys:
-                setattr(preferences, preference_key, entity_id)
-
-    store = getattr(preferences, "_store", None)
-    as_dict = getattr(preferences, "as_dict", None)
-    if store is not None and callable(as_dict) and hasattr(store, "async_save"):
-        try:
-            await store.async_save(as_dict())
-        except Exception:
-            LOGGER.warning(
-                "Could not persist AI task preferences", exc_info=True
-            )
+    if desired:
+        await _async_apply_ai_task_preferences(hass, desired)
 
 
 def _async_entity_supports_feature(
@@ -290,7 +331,7 @@ async def _async_review_ai_task_preferences(
         ),
     }
 
-    suggested_entities: dict[str, str] = {}
+    suggested_entities: dict[str, tuple[str, str]] = {}
     generate_data_feature = task_features["gen_data_entity_id"][0]
     generate_image_feature = task_features["gen_image_entity_id"][0]
     evaluate_feature = task_features["evaluate_entity_id"][0]
@@ -310,6 +351,7 @@ async def _async_review_ai_task_preferences(
         if state is None:
             continue
         supported_features = state.attributes.get("supported_features", 0)
+        display_name = _ai_task_entity_display_name(subentry, entity_id, state)
         is_text_task = _async_subentry_matches_ai_task_kind(
             subentry, AI_TASK_KIND_TEXT
         )
@@ -322,47 +364,58 @@ async def _async_review_ai_task_preferences(
             and supported_features & generate_data_feature
             and "gen_data_entity_id" not in suggested_entities
         ):
-            suggested_entities["gen_data_entity_id"] = entity_id
+            suggested_entities["gen_data_entity_id"] = (entity_id, display_name)
         if (
             is_text_task
             and evaluate_feature
             and supported_features & evaluate_feature
             and "evaluate_entity_id" not in suggested_entities
         ):
-            suggested_entities["evaluate_entity_id"] = entity_id
+            suggested_entities["evaluate_entity_id"] = (entity_id, display_name)
         if (
             is_image_task
             and generate_image_feature
             and supported_features & generate_image_feature
             and "gen_image_entity_id" not in suggested_entities
         ):
-            suggested_entities["gen_image_entity_id"] = entity_id
+            suggested_entities["gen_image_entity_id"] = (entity_id, display_name)
 
     for preference_key, (feature, issue_key) in task_features.items():
         if feature == 0:
             continue
 
         issue_id = f"ai_task_{preference_key}_{entry.entry_id}"
-        current_entity_id = getattr(preferences, preference_key)
+        current_entity_id = getattr(preferences, preference_key, None)
         preference_is_valid = _async_entity_supports_feature(
             hass, current_entity_id, feature
         )
-        suggested_entity_id = suggested_entities.get(preference_key)
+        suggested = suggested_entities.get(preference_key)
 
-        if preference_is_valid or suggested_entity_id is None:
+        if preference_is_valid or suggested is None:
             issue_registry.async_delete_issue(hass, DOMAIN, issue_id)
             continue
+
+        suggested_entity_id, suggested_entity_name = suggested
 
         issue_registry.async_create_issue(
             hass,
             DOMAIN,
             issue_id,
             config_entry_id=entry.entry_id,
-            is_fixable=False,
+            is_fixable=True,
             is_persistent=True,
             severity=IssueSeverity.WARNING,
             translation_key=issue_key,
-            translation_placeholders={"entity_id": suggested_entity_id},
+            translation_placeholders={
+                "entity_name": suggested_entity_name,
+                "settings_url": _ai_task_settings_url(hass),
+            },
+            data={
+                "preference_key": preference_key,
+                "entity_id": suggested_entity_id,
+                "entity_name": suggested_entity_name,
+            },
+            learn_more_url="homeassistant://config/ai",
         )
 
 
