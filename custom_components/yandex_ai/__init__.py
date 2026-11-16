@@ -25,7 +25,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .client import YandexAIStudioError, YandexAIClient
 from .const import (AI_TASK_KIND_IMAGE, AI_TASK_KIND_TEXT,
-                    CAP_TEXT_TO_IMAGE, CAP_TEXT_TO_TEXT,
+                    CAP_IMAGE_TO_TEXT, CAP_TEXT_TO_IMAGE, CAP_TEXT_TO_TEXT,
                     CONF_AI_TASK_KIND, CONF_CHAT_MODEL,
                     CONF_ENABLE_SERVER_DATA_LOGGING, CONF_FOLDER_ID,
                     CONF_PENDING_AI_TASK_PREFERENCES,
@@ -42,6 +42,55 @@ PLATFORMS = (Platform.CONVERSATION, Platform.AI_TASK)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 type YandexAIConfigEntry = ConfigEntry[YandexAIClient]  # type: ignore[name-defined]
+
+AI_TASK_PREFERENCE_ORDER = (
+    "gen_data_entity_id",
+    "gen_image_entity_id",
+    "evaluate_entity_id",
+)
+AI_TASK_PREFERENCE_MULTIMODAL_PRIORITY = {
+    "gen_data_entity_id",
+    "evaluate_entity_id",
+}
+AI_TASK_PREFERENCES_ISSUE_PREFIX = "ai_task_preferences_not_set"
+AI_TASK_PREFERENCES_ACKNOWLEDGED_DATA_KEY = "acknowledged_preference_keys"
+AI_TASK_SETTINGS_URL = "/config/ai"
+
+
+def _ai_task_preferences_issue_id(entry: YandexAIConfigEntry) -> str:
+    """Return the unified AI task preferences issue id."""
+    return f"{AI_TASK_PREFERENCES_ISSUE_PREFIX}_{entry.entry_id}"
+
+
+def _ai_task_preferences_issue_key(preference_count: int) -> str:
+    """Return the issue translation key for the unified issue."""
+    if preference_count == 1:
+        return "ai_task_preferences_not_set_one"
+    return "ai_task_preferences_not_set_many"
+
+
+def _ai_task_acknowledged_preference_keys(value: object) -> set[str]:
+    """Return acknowledged AI task preference keys from issue data."""
+    if not isinstance(value, str) or not value:
+        return set()
+    return {key.strip() for key in value.split(",") if key.strip()}
+
+
+def _ai_task_preferences_issue_data(
+    entry: YandexAIConfigEntry,
+    preference_keys: list[str],
+    acknowledged_keys: set[str] | None = None,
+) -> dict[str, str]:
+    """Return issue data for the unified AI task preferences issue."""
+    data = {
+        "entry_id": entry.entry_id,
+        "preference_keys": ",".join(preference_keys),
+    }
+    if acknowledged_keys:
+        data[AI_TASK_PREFERENCES_ACKNOWLEDGED_DATA_KEY] = ",".join(
+            sorted(acknowledged_keys)
+        )
+    return data
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -145,14 +194,23 @@ def _async_subentry_matches_ai_task_kind(
     return CAP_TEXT_TO_IMAGE in capabilities
 
 
-def _ai_task_preference_candidate_entity_ids(
+def _ai_task_preference_candidates(
     hass: HomeAssistant,
     entry: YandexAIConfigEntry,
     preference_key: str,
-) -> list[str]:
+) -> list[dict[str, str | int]]:
+    """Return usable Yandex AI task entities for a preference.
+
+    The list is sorted so that multimodal text tasks come first for
+    ``gen_data_entity_id`` and ``evaluate_entity_id``.
+    """
+    feature = _ai_task_preference_feature(preference_key)
     kind = _ai_task_preference_kind(preference_key)
+    if feature == 0:
+        return []
+
     entity_registry = er.async_get(hass)
-    candidates: list[str] = []
+    candidates: list[dict[str, str | int]] = []
 
     for subentry in entry.subentries.values():
         if not _async_subentry_matches_ai_task_kind(subentry, kind):
@@ -165,9 +223,46 @@ def _ai_task_preference_candidate_entity_ids(
         registry_entity = entity_registry.async_get(entity_id)
         if registry_entity is None or registry_entity.disabled:
             continue
-        candidates.append(entity_id)
+        state = hass.states.get(entity_id)
+        if state is None:
+            continue
+        if not (
+            state.attributes.get("supported_features", 0) & feature
+        ):
+            continue
 
+        priority = 0
+        if preference_key in AI_TASK_PREFERENCE_MULTIMODAL_PRIORITY:
+            model = subentry.data.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
+            if CAP_IMAGE_TO_TEXT in model_capabilities(model):
+                priority = 1
+
+        candidates.append(
+            {
+                "entity_id": entity_id,
+                "name": _ai_task_entity_display_name(
+                    subentry, entity_id, state
+                ),
+                "priority": priority,
+            }
+        )
+
+    candidates.sort(key=lambda candidate: candidate["priority"], reverse=True)
     return candidates
+
+
+def _ai_task_preference_candidate_entity_ids(
+    hass: HomeAssistant,
+    entry: YandexAIConfigEntry,
+    preference_key: str,
+) -> list[str]:
+    """Return the candidate entity ids for a preference."""
+    return [
+        str(candidate["entity_id"])
+        for candidate in _ai_task_preference_candidates(
+            hass, entry, preference_key
+        )
+    ]
 
 
 def _find_ai_task_entity_for_preference(
@@ -176,33 +271,10 @@ def _find_ai_task_entity_for_preference(
     preference_key: str,
 ) -> str | None:
     """Find the created Yandex AI task entity that satisfies a preference."""
-    feature = _ai_task_preference_feature(preference_key)
-    if feature == 0:
+    candidates = _ai_task_preference_candidates(hass, entry, preference_key)
+    if not candidates:
         return None
-
-    def _matching_entity_id() -> str | None:
-        for entity_id in _ai_task_preference_candidate_entity_ids(
-            hass, entry, preference_key
-        ):
-            state = hass.states.get(entity_id)
-            if state is not None and (
-                state.attributes.get("supported_features", 0) & feature
-            ):
-                return entity_id
-        return None
-
-    fallback = _ai_task_preference_candidate_entity_ids(
-        hass, entry, preference_key
-    )
-    return _matching_entity_id() or (fallback[0] if fallback else None)
-
-
-def _ai_task_settings_url(hass: HomeAssistant) -> str:
-    """Return the absolute URL of the AI task settings page, if known."""
-    base = hass.config.internal_url or hass.config.external_url
-    if not base:
-        return ""
-    return f"{base.rstrip('/')}/config/ai"
+    return str(candidates[0]["entity_id"])
 
 
 def _ai_task_entity_display_name(
@@ -308,115 +380,115 @@ def _async_entity_supports_feature(
     return bool(state.attributes.get("supported_features", 0) & feature)
 
 
+def _async_problematic_ai_task_preferences(
+    hass: HomeAssistant,
+    entry: YandexAIConfigEntry,
+) -> tuple[list[str], dict[str, list[dict[str, str | int]]]]:
+    """Return unset or invalid AI task preferences with candidates."""
+    preferences = hass.data.get(DATA_PREFERENCES)
+    if preferences is None:
+        return [], {}
+
+    problem: list[str] = []
+    candidates_by_key: dict[str, list[dict[str, str | int]]] = {}
+
+    for preference_key in AI_TASK_PREFERENCE_ORDER:
+        feature = _ai_task_preference_feature(preference_key)
+        if feature == 0:
+            continue
+        current_entity_id = getattr(preferences, preference_key, None)
+        if _async_entity_supports_feature(
+            hass, current_entity_id, feature
+        ):
+            continue
+
+        candidates = _ai_task_preference_candidates(
+            hass, entry, preference_key
+        )
+        if candidates:
+            problem.append(preference_key)
+            candidates_by_key[preference_key] = candidates
+
+    return problem, candidates_by_key
+
+
+def _async_cleanup_old_ai_task_preference_issues(
+    hass: HomeAssistant, entry: YandexAIConfigEntry
+) -> None:
+    """Delete per-preference issues created by older integration versions."""
+    for preference_key in AI_TASK_PREFERENCE_ORDER:
+        issue_registry.async_delete_issue(
+            hass, DOMAIN, f"ai_task_{preference_key}_{entry.entry_id}"
+        )
+
+
+def _async_update_ai_task_preferences_issue(
+    hass: HomeAssistant,
+    entry: YandexAIConfigEntry,
+    problem: list[str],
+    candidates_by_key: dict[str, list[dict[str, str | int]]],
+    acknowledged_keys: set[str] | None = None,
+) -> None:
+    """Create or update the unified AI task preferences issue."""
+    issue_id = _ai_task_preferences_issue_id(entry)
+    if not problem:
+        issue_registry.async_delete_issue(hass, DOMAIN, issue_id)
+        return
+
+    problem_set = set(problem)
+    acknowledged = {
+        key for key in (acknowledged_keys or set()) if key in problem_set
+    }
+    visible_problem = [key for key in problem if key not in acknowledged]
+    issue_registry.async_create_issue(
+        hass,
+        DOMAIN,
+        issue_id,
+        config_entry_id=entry.entry_id,
+        is_fixable=True,
+        is_persistent=True,
+        severity=IssueSeverity.WARNING,
+        translation_key=_ai_task_preferences_issue_key(len(problem)),
+        translation_placeholders={
+            "settings_url": AI_TASK_SETTINGS_URL,
+        },
+        data=_ai_task_preferences_issue_data(
+            entry,
+            visible_problem or problem,
+            acknowledged,
+        ),
+        learn_more_url="homeassistant://config/ai",
+    )
+    issue_registry.async_ignore_issue(
+        hass, DOMAIN, issue_id, not visible_problem
+    )
+
+
 async def _async_review_ai_task_preferences(
     hass: HomeAssistant, entry: YandexAIConfigEntry
 ) -> None:
     """Check AI task preferences and suggest created Yandex AI tasks."""
-    preferences = hass.data.get(DATA_PREFERENCES)
-    if preferences is None:
-        return
-
-    task_features = {
-        "gen_data_entity_id": (
-            getattr(AITaskEntityFeature, "GENERATE_DATA", 0),
-            "ai_task_data_preference_not_set",
-        ),
-        "gen_image_entity_id": (
-            getattr(AITaskEntityFeature, "GENERATE_IMAGE", 0),
-            "ai_task_image_preference_not_set",
-        ),
-        "evaluate_entity_id": (
-            getattr(AITaskEntityFeature, "EVALUATE", 0),
-            "ai_task_solutions_preference_not_set",
-        ),
-    }
-
-    suggested_entities: dict[str, tuple[str, str]] = {}
-    generate_data_feature = task_features["gen_data_entity_id"][0]
-    generate_image_feature = task_features["gen_image_entity_id"][0]
-    evaluate_feature = task_features["evaluate_entity_id"][0]
-    entity_registry = er.async_get(hass)
-    for subentry in entry.subentries.values():
-        if subentry.subentry_type != SUBENTRY_TYPE_AI_TASK_DATA:
-            continue
-        entity_id = entity_registry.async_get_entity_id(
-            Platform.AI_TASK, DOMAIN, subentry.subentry_id
+    _async_cleanup_old_ai_task_preference_issues(hass, entry)
+    problem, candidates_by_key = _async_problematic_ai_task_preferences(
+        hass, entry
+    )
+    issue_id = _ai_task_preferences_issue_id(entry)
+    existing_issue = issue_registry.async_get(hass).async_get_issue(DOMAIN, issue_id)
+    acknowledged_data = (
+        (existing_issue.data or {}).get(
+            AI_TASK_PREFERENCES_ACKNOWLEDGED_DATA_KEY
         )
-        if entity_id is None:
-            continue
-        registry_entity = entity_registry.async_get(entity_id)
-        if registry_entity is None or registry_entity.disabled:
-            continue
-        state = hass.states.get(entity_id)
-        if state is None:
-            continue
-        supported_features = state.attributes.get("supported_features", 0)
-        display_name = _ai_task_entity_display_name(subentry, entity_id, state)
-        is_text_task = _async_subentry_matches_ai_task_kind(
-            subentry, AI_TASK_KIND_TEXT
-        )
-        is_image_task = _async_subentry_matches_ai_task_kind(
-            subentry, AI_TASK_KIND_IMAGE
-        )
-        if (
-            is_text_task
-            and generate_data_feature
-            and supported_features & generate_data_feature
-            and "gen_data_entity_id" not in suggested_entities
-        ):
-            suggested_entities["gen_data_entity_id"] = (entity_id, display_name)
-        if (
-            is_text_task
-            and evaluate_feature
-            and supported_features & evaluate_feature
-            and "evaluate_entity_id" not in suggested_entities
-        ):
-            suggested_entities["evaluate_entity_id"] = (entity_id, display_name)
-        if (
-            is_image_task
-            and generate_image_feature
-            and supported_features & generate_image_feature
-            and "gen_image_entity_id" not in suggested_entities
-        ):
-            suggested_entities["gen_image_entity_id"] = (entity_id, display_name)
-
-    for preference_key, (feature, issue_key) in task_features.items():
-        if feature == 0:
-            continue
-
-        issue_id = f"ai_task_{preference_key}_{entry.entry_id}"
-        current_entity_id = getattr(preferences, preference_key, None)
-        preference_is_valid = _async_entity_supports_feature(
-            hass, current_entity_id, feature
-        )
-        suggested = suggested_entities.get(preference_key)
-
-        if preference_is_valid or suggested is None:
-            issue_registry.async_delete_issue(hass, DOMAIN, issue_id)
-            continue
-
-        suggested_entity_id, suggested_entity_name = suggested
-
-        issue_registry.async_create_issue(
-            hass,
-            DOMAIN,
-            issue_id,
-            config_entry_id=entry.entry_id,
-            is_fixable=True,
-            is_persistent=True,
-            severity=IssueSeverity.WARNING,
-            translation_key=issue_key,
-            translation_placeholders={
-                "entity_name": suggested_entity_name,
-                "settings_url": _ai_task_settings_url(hass),
-            },
-            data={
-                "preference_key": preference_key,
-                "entity_id": suggested_entity_id,
-                "entity_name": suggested_entity_name,
-            },
-            learn_more_url="homeassistant://config/ai",
-        )
+        if existing_issue
+        else None
+    )
+    acknowledged = _ai_task_acknowledged_preference_keys(acknowledged_data)
+    _async_update_ai_task_preferences_issue(
+        hass,
+        entry,
+        problem,
+        candidates_by_key,
+        acknowledged,
+    )
 
 
 def _async_ensure_default_subentries(

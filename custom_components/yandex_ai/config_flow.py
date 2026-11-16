@@ -483,12 +483,13 @@ def _ai_task_preference_keys_to_offer(
     generate_image_feature = getattr(AITaskEntityFeature, "GENERATE_IMAGE", 0)
     evaluate_feature = getattr(AITaskEntityFeature, "EVALUATE", 0)
     offered: dict[str, AITaskEntityFeature] = {}
-    if CAP_TEXT_TO_TEXT in text_capabilities and generate_data_feature:
+    text_supported = CAP_TEXT_TO_TEXT in text_capabilities
+    if text_supported and generate_data_feature:
         offered["gen_data_entity_id"] = generate_data_feature
-        if evaluate_feature:
-            offered["evaluate_entity_id"] = evaluate_feature
     if CAP_TEXT_TO_IMAGE in image_capabilities and generate_image_feature:
         offered["gen_image_entity_id"] = generate_image_feature
+    if text_supported and evaluate_feature:
+        offered["evaluate_entity_id"] = evaluate_feature
     return offered
 
 
@@ -539,6 +540,12 @@ def _async_with_ai_task_kind(
     else:
         result[CONF_AI_TASK_KIND] = AI_TASK_KIND_TEXT
     return result
+
+
+def _ai_task_subentry_title(task_data: dict[str, Any], kind: str) -> str:
+    """Return the default title for an AI task subentry."""
+    suffix = "Image Task" if kind == AI_TASK_KIND_IMAGE else "Text Task"
+    return f"{friendly_model_label(task_data.get(CONF_CHAT_MODEL))} {suffix}"
 
 
 def _image_task_settings_schema(
@@ -623,19 +630,24 @@ def _reasoning_effort_schema_entry(
     suggested_value = (
         suggested if suggested in REASONING_EFFORT_VALUES else ""
     )
-    return {
-        vol.Required(
+    marker = (
+        vol.Optional(
             _REASONING_EFFORT_DEEPSEEK_FIELD,
             description={"suggested_value": suggested_value},
-            default="",
-        ): SelectSelector(
+            default=suggested_value,
+        )
+        if suggested_value
+        else vol.Optional(
+            _REASONING_EFFORT_DEEPSEEK_FIELD,
+            description={"suggested_value": suggested_value},
+        )
+    )
+    return {
+        marker: SelectSelector(
             SelectSelectorConfig(
                 options=[
-                    SelectOptionDict(label="", value=""),
-                    *(
-                        SelectOptionDict(label=option, value=option)
-                        for option in REASONING_EFFORT_VALUES
-                    ),
+                    SelectOptionDict(label=option, value=option)
+                    for option in REASONING_EFFORT_VALUES
                 ],
                 mode=SelectSelectorMode.DROPDOWN,
                 custom_value=False,
@@ -789,11 +801,16 @@ class YandexAIConfigFlow(ConfigFlow, domain=DOMAIN):
         """Configure the model and basic options for the conversation subentry."""
         if user_input is not None:
             recommended = user_input[CONF_RECOMMENDED]
+            raw_model = (
+                user_input.get(CONF_CHAT_MODEL) or DEFAULT_CHAT_MODEL
+            )
             self._conversation_model_version_hidden = _model_version_of(
-                user_input[CONF_CHAT_MODEL]
+                raw_model
             ) is not None
+            submission = dict(user_input)
+            submission[CONF_CHAT_MODEL] = raw_model
             combined = _normalize_model_choice(
-                {**self._conversation_options, **user_input}
+                {**self._conversation_options, **submission}
             )
             combined[CONF_RECOMMENDED] = recommended
             self._conversation_options = combined
@@ -906,7 +923,9 @@ class YandexAIConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Select the model and advanced options for the image task."""
         if user_input is not None:
-            raw_model = user_input[CONF_CHAT_MODEL]
+            raw_model = (
+                user_input.get(CONF_CHAT_MODEL) or DEFAULT_AI_TASK_MODEL
+            )
             self._ai_task_image_model_version_hidden = _model_version_of(
                 raw_model
             ) is not None
@@ -1011,7 +1030,9 @@ class YandexAIConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         if user_input is not None:
-            raw_model = user_input[CONF_CHAT_MODEL]
+            raw_model = (
+                user_input.get(CONF_CHAT_MODEL) or DEFAULT_CHAT_MODEL
+            )
             self._ai_task_text_model_version_hidden = _model_version_of(
                 raw_model
             ) is not None
@@ -1170,6 +1191,17 @@ class YandexAIConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="ai_task_preferences",
             data_schema=schema,
+            description_placeholders={
+                "gen_data_task_name": _ai_task_subentry_title(
+                    text_task_data, AI_TASK_KIND_TEXT
+                ),
+                "gen_image_task_name": _ai_task_subentry_title(
+                    image_task_data, AI_TASK_KIND_IMAGE
+                ),
+                "evaluate_task_name": _ai_task_subentry_title(
+                    text_task_data, AI_TASK_KIND_TEXT
+                ),
+            },
             last_step=True,
         )
 
@@ -1216,13 +1248,11 @@ class YandexAIConfigFlow(ConfigFlow, domain=DOMAIN):
             f"{friendly_model_label(conversation_data.get(CONF_CHAT_MODEL))} "
             "Conversation"
         )
-        image_task_title = (
-            f"{friendly_model_label(image_task_data.get(CONF_CHAT_MODEL))} "
-            "Image Task"
+        image_task_title = _ai_task_subentry_title(
+            image_task_data, AI_TASK_KIND_IMAGE
         )
-        text_task_title = (
-            f"{friendly_model_label(text_task_data.get(CONF_CHAT_MODEL))} "
-            "Text Task"
+        text_task_title = _ai_task_subentry_title(
+            text_task_data, AI_TASK_KIND_TEXT
         )
         data = dict(self._credentials or {})
         if self._pending_ai_task_preferences:
@@ -1372,11 +1402,16 @@ class ConversationFlowHandler(ConfigSubentryFlow):
 
         if user_input is not None:
             recommended = user_input[CONF_RECOMMENDED]
+            raw_model = (
+                user_input.get(CONF_CHAT_MODEL) or DEFAULT_CHAT_MODEL
+            )
             self._model_version_hidden = _model_version_of(
-                user_input[CONF_CHAT_MODEL]
+                raw_model
             ) is not None
+            submission = dict(user_input)
+            submission[CONF_CHAT_MODEL] = raw_model
             combined = _normalize_model_choice(
-                {**dict(self.options), **user_input}
+                {**dict(self.options), **submission}
             )
             combined[CONF_RECOMMENDED] = recommended
             self.options = combined
@@ -1645,7 +1680,9 @@ class AITaskDataFlowHandler(ConfigSubentryFlow):
         model_options = await self._async_build_model_options()
 
         if user_input is not None:
-            raw_model = user_input[CONF_CHAT_MODEL]
+            raw_model = (
+                user_input.get(CONF_CHAT_MODEL) or DEFAULT_AI_TASK_MODEL
+            )
             self._model_version_hidden = _model_version_of(raw_model) is not None
             model_id = _base_or_value(raw_model) or DEFAULT_AI_TASK_MODEL
             self.options = _normalize_model_choice(

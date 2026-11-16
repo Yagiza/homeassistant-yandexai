@@ -141,9 +141,9 @@
           "evaluate_entity_id": "Solutions"
         },
         "data_description": {
-          "gen_data_entity_id": "Use the created text AI task for data generation",
-          "gen_image_entity_id": "Use the created AI task for image generation",
-          "evaluate_entity_id": "Use the created text AI task for solutions"
+          "gen_data_entity_id": "Install **{gen_data_task_name}**",
+          "gen_image_entity_id": "Install **{gen_image_task_name}**",
+          "evaluate_entity_id": "Install **{evaluate_task_name}**"
         }
       },
       "reconfigure": {
@@ -320,93 +320,67 @@
     }
   },
   "issues": {
-    "ai_task_data_preference_not_set": {
-      "title": "Data generation task is not selected or unavailable",
-      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), no working data generation task is selected, or the selected task no longer exists. The created task {entity_name} is suggested.",
+    "ai_task_preferences_not_set_one": {
+      "title": "A system AI task is not selected or unavailable",
+      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), a system AI task is not selected or the selected task is unavailable. Click “Fix” to choose a task.",
       "fix_flow": {
         "step": {
-          "menu": {
-            "title": "Fix task selection",
-            "description": "The task {entity_name} can be selected as the working task. Alternatively, open [Settings → System → Artificial Intelligence]({settings_url}) and choose a task manually.",
-            "menu_options": {
-              "install": "Install suggested task",
-              "ignore": "Ignore"
+          "select": {
+            "title": "Select a system AI task",
+            "description": "Choose the system AI task. An empty field means the task will not be installed and its problem will be acknowledged. Alternatively, open [Settings → System → Artificial Intelligence]({settings_url}) and choose a task manually.",
+            "data": {
+              "gen_data_entity_id": "Data generation",
+              "gen_image_entity_id": "Image generation",
+              "evaluate_entity_id": "Solutions"
             },
-            "menu_option_descriptions": {
-              "install": "The preference will be applied automatically.",
-              "ignore": "The issue will be hidden, but the problem remains."
+            "data_description": {
+              "gen_data_entity_id": "Leave empty to skip installing this task and acknowledge its problem.",
+              "gen_image_entity_id": "Leave empty to skip installing this task and acknowledge its problem.",
+              "evaluate_entity_id": "Leave empty to skip installing this task and acknowledge its problem."
             }
           }
         },
         "abort": {
           "missing_data": "The fix could not be applied because the task data is missing or out of date.",
-          "entity_unavailable": "The fix could not be applied because the suggested task is unavailable or does not support the required feature.",
-          "already_fixed": "The task is already selected, so no further action is required.",
-          "apply_failed": "The selected preference could not be applied. Check the HA logs for details.",
-          "ignored": "The issue will be ignored."
+          "already_fixed": "The system AI task is already selected, so no further action is required.",
+          "no_changes": "No preferences were applied. Tasks left empty were acknowledged and hidden from problems.",
+          "apply_failed": "The selected preferences could not be applied. Check the HA logs for details.",
+          "partially_fixed": "Some tasks were installed. Tasks left empty were acknowledged and hidden from problems."
         },
         "create_entry": {
-          "default": "The working task has been selected."
+          "default": "The system AI task has been selected."
         }
       }
     },
-    "ai_task_image_preference_not_set": {
-      "title": "Image generation task is not selected or unavailable",
-      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), no working image generation task is selected, or the selected task no longer exists. The created task {entity_name} is suggested.",
+    "ai_task_preferences_not_set_many": {
+      "title": "System AI tasks are not selected or unavailable",
+      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), system AI tasks are not selected or the selected tasks are unavailable. Click “Fix” to choose the tasks.",
       "fix_flow": {
         "step": {
-          "menu": {
-            "title": "Fix task selection",
-            "description": "The task {entity_name} can be selected as the working task. Alternatively, open [Settings → System → Artificial Intelligence]({settings_url}) and choose a task manually.",
-            "menu_options": {
-              "install": "Install suggested task",
-              "ignore": "Ignore"
+          "select": {
+            "title": "Select system AI tasks",
+            "description": "Choose the system AI tasks. An empty field means the task will not be installed and its problem will be acknowledged. Alternatively, open [Settings → System → Artificial Intelligence]({settings_url}) and choose tasks manually.",
+            "data": {
+              "gen_data_entity_id": "Data generation",
+              "gen_image_entity_id": "Image generation",
+              "evaluate_entity_id": "Solutions"
             },
-            "menu_option_descriptions": {
-              "install": "The preference will be applied automatically.",
-              "ignore": "The issue will be hidden, but the problem remains."
+            "data_description": {
+              "gen_data_entity_id": "Leave empty to skip installing this task and acknowledge its problem.",
+              "gen_image_entity_id": "Leave empty to skip installing this task and acknowledge its problem.",
+              "evaluate_entity_id": "Leave empty to skip installing this task and acknowledge its problem."
             }
           }
         },
         "abort": {
           "missing_data": "The fix could not be applied because the task data is missing or out of date.",
-          "entity_unavailable": "The fix could not be applied because the suggested task is unavailable or does not support the required feature.",
-          "already_fixed": "The task is already selected, so no further action is required.",
-          "apply_failed": "The selected preference could not be applied. Check the HA logs for details.",
-          "ignored": "The issue will be ignored."
+          "already_fixed": "The system AI tasks are already selected, so no further action is required.",
+          "no_changes": "No preferences were applied. Tasks left empty were acknowledged and hidden from problems.",
+          "apply_failed": "The selected preferences could not be applied. Check the HA logs for details.",
+          "partially_fixed": "Some tasks were installed. Tasks left empty were acknowledged and hidden from problems."
         },
         "create_entry": {
-          "default": "The working task has been selected."
-        }
-      }
-    },
-    "ai_task_solutions_preference_not_set": {
-      "title": "Solutions task is not selected or unavailable",
-      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), no working solutions task is selected, or the selected task no longer exists. The created task {entity_name} is suggested.",
-      "fix_flow": {
-        "step": {
-          "menu": {
-            "title": "Fix task selection",
-            "description": "The task {entity_name} can be selected as the working task. Alternatively, open [Settings → System → Artificial Intelligence]({settings_url}) and choose a task manually.",
-            "menu_options": {
-              "install": "Install suggested task",
-              "ignore": "Ignore"
-            },
-            "menu_option_descriptions": {
-              "install": "The preference will be applied automatically.",
-              "ignore": "The issue will be hidden, but the problem remains."
-            }
-          }
-        },
-        "abort": {
-          "missing_data": "The fix could not be applied because the task data is missing or out of date.",
-          "entity_unavailable": "The fix could not be applied because the suggested task is unavailable or does not support the required feature.",
-          "already_fixed": "The task is already selected, so no further action is required.",
-          "apply_failed": "The selected preference could not be applied. Check the HA logs for details.",
-          "ignored": "The issue will be ignored."
-        },
-        "create_entry": {
-          "default": "The working task has been selected."
+          "default": "The system AI tasks have been selected."
         }
       }
     }
