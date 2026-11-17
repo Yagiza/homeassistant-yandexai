@@ -1,6 +1,7 @@
 {
   "domain": "yandex_ai",
   "name": "Yandex AI",
+  "categories": ["ai_voice.ai_models", "ai_voice.voice_assistants"],
   "after_dependencies": ["assist_pipeline", "intent"],
   "codeowners": ["@Yagiza"],
   "config_flow": true,
