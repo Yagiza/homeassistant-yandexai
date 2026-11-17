@@ -22,7 +22,6 @@ jobs:
       - uses: "hacs/action@main"
         with:
           category: "integration"
-          ignore: brands
 
   license:
     name: "With License Eye Header"
