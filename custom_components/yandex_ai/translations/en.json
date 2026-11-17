@@ -322,7 +322,6 @@
   "issues": {
     "ai_task_preferences_not_set_one": {
       "title": "A system AI task is not selected or unavailable",
-      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), a system AI task is not selected or the selected task is unavailable. Click “Fix” to choose a task.",
       "fix_flow": {
         "step": {
           "select": {
@@ -354,7 +353,6 @@
     },
     "ai_task_preferences_not_set_many": {
       "title": "System AI tasks are not selected or unavailable",
-      "description": "In [Settings → System → Artificial Intelligence]({settings_url}), system AI tasks are not selected or the selected tasks are unavailable. Click “Fix” to choose the tasks.",
       "fix_flow": {
         "step": {
           "select": {
