@@ -25,7 +25,8 @@ from homeassistant.helpers.selector import (BooleanSelector, NumberSelector,
                                              SelectSelectorConfig,
                                              SelectSelectorMode,
                                              TemplateSelector, TextSelector,
-                                             TextSelectorConfig)
+                                             TextSelectorConfig,
+                                             TextSelectorType)
 
 from .client import YandexAIStudioError, YandexAIClient
 from .const import (AI_TASK_KIND_IMAGE, AI_TASK_KIND_TEXT,
@@ -62,7 +63,9 @@ from .const import (AI_TASK_KIND_IMAGE, AI_TASK_KIND_TEXT,
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_FOLDER_ID): str,
-        vol.Required(CONF_API_KEY): str,
+        vol.Required(CONF_API_KEY): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
         vol.Required(
             CONF_ENABLE_SERVER_DATA_LOGGING,
             default=DEFAULT_ENABLE_SERVER_DATA_LOGGING,
