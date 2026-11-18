@@ -15,11 +15,15 @@ jobs:
       - name: "Checkout"
         uses: "actions/checkout@v7.0.1"
       - name: "Verify the release version"
-        uses: technote-space/package-version-check-action@v1.9.3
-        with:
-          COMMIT_DISABLED: true
-          PACKAGE_DIR: ${{ github.workspace }}/custom_components/yandex_ai
-          PACKAGE_NAME: manifest.json
+        shell: "bash"
+        run: |
+          package_version=$(jq -er '.version' custom_components/yandex_ai/manifest.json)
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$package_version" != "$tag_version" ]; then
+            echo "::error::Release version mismatch: manifest.json has '${package_version}', tag is '${GITHUB_REF_NAME}'"
+            exit 1
+          fi
+          echo "Release version '${package_version}' matches tag '${GITHUB_REF_NAME}'"
       - name: "Compress"
         shell: "bash"
         run: |
